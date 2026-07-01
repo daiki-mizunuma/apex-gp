@@ -1,0 +1,83 @@
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { width:100%; height:100%; overflow:hidden; background:#0a0a12; font-family:'Trebuchet MS','Segoe UI',sans-serif; color:#fff; }
+#game { position:fixed; inset:0; }
+canvas { display:block; }
+
+/* ---------- HUD ---------- */
+#hud { position:fixed; inset:0; pointer-events:none; z-index:10; }
+.panel { position:absolute; background:rgba(10,12,22,.55); border:1px solid rgba(255,255,255,.15);
+         border-radius:10px; padding:8px 12px; backdrop-filter:blur(4px); text-shadow:0 1px 3px #000; }
+
+#lapBox { top:14px; left:14px; font-size:15px; line-height:1.5; }
+#lapBox b { color:#ffd23c; font-size:22px; }
+#posBox { top:14px; left:150px; text-align:center; }
+#posBox .big { font-size:30px; font-weight:bold; color:#ff2d2d; }
+#posBox .small { font-size:12px; opacity:.8; }
+
+#timeBox { top:14px; right:14px; text-align:right; font-variant-numeric:tabular-nums; }
+#timeBox .t { font-size:20px; color:#7ee0ff; }
+#timeBox .lbl { font-size:11px; opacity:.7; letter-spacing:1px; }
+
+#speedBox { bottom:14px; left:50%; transform:translateX(-50%); text-align:center; }
+#speedBox .kmh { font-size:54px; font-weight:bold; line-height:.9; color:#fff; }
+#speedBox .u { font-size:16px; opacity:.7; }
+#speedBox .gear { font-size:30px; color:#ffd23c; font-weight:bold; }
+
+/* Position list */
+#standings { bottom:18px; left:14px; font-size:13px; line-height:1.55; min-width:150px; }
+#standings .row { display:flex; justify-content:space-between; gap:10px; }
+#standings .me { color:#ffd23c; font-weight:bold; }
+#standings .hd { opacity:.6; font-size:11px; letter-spacing:1px; border-bottom:1px solid rgba(255,255,255,.2); margin-bottom:3px; padding-bottom:2px; }
+
+/* mini-map */
+#mapWrap { position:absolute; bottom:14px; right:14px; width:150px; height:150px;
+           background:rgba(10,12,22,.5); border:1px solid rgba(255,255,255,.15); border-radius:10px; }
+#map { width:100%; height:100%; }
+
+/* countdown */
+#count { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:20;
+         font-size:160px; font-weight:bold; color:#fff; text-shadow:0 0 40px #ff2d2d,0 6px 10px #000; pointer-events:none; opacity:0; }
+
+/* center toast */
+#toast { position:fixed; top:30%; left:50%; transform:translateX(-50%); z-index:20; font-size:40px;
+         font-weight:bold; color:#ffd23c; text-shadow:0 0 24px #000,0 3px 6px #000; opacity:0; transition:opacity .3s; pointer-events:none; }
+
+/* help */
+#help { top:84px; left:14px; font-size:12px; line-height:1.7; opacity:.85; max-width:240px; transition:opacity .4s; }
+#help kbd { background:#222; border:1px solid #555; border-bottom-width:2px; border-radius:4px; padding:1px 6px; font-family:monospace; }
+
+/* start overlay */
+#overlay { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center; justify-content:center;
+           background:radial-gradient(circle at 50% 35%, #1b2340, #070710 75%); text-align:center; padding:20px; }
+#overlay h1 { font-size:64px; letter-spacing:6px; background:linear-gradient(90deg,#ff2d2d,#ffd23c);
+              -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:6px; }
+#overlay .sub { opacity:.85; margin-bottom:26px; font-size:16px; letter-spacing:2px; }
+#startBtn { pointer-events:auto; cursor:pointer; font-size:26px; font-weight:bold; color:#0a0a12;
+            background:linear-gradient(90deg,#ffd23c,#ff8a00); border:none; border-radius:50px; padding:16px 54px;
+            box-shadow:0 8px 30px rgba(255,140,0,.5); transition:transform .12s; letter-spacing:2px; }
+#startBtn:hover { transform:scale(1.06); }
+#overlay .ctrls { margin-top:30px; font-size:13px; line-height:1.9; opacity:.8; }
+#overlay .ctrls kbd { background:#222; border:1px solid #555; border-radius:4px; padding:1px 7px; font-family:monospace; }
+#loadNote { margin-top:18px; font-size:13px; opacity:.6; }
+
+/* results */
+#results { position:fixed; inset:0; z-index:45; display:none; flex-direction:column; align-items:center; justify-content:center;
+           background:rgba(5,6,12,.86); backdrop-filter:blur(6px); text-align:center; }
+#results h2 { font-size:46px; margin-bottom:4px; }
+#results .fin { font-size:20px; margin-bottom:18px; }
+#results table { border-collapse:collapse; font-size:16px; margin-bottom:22px; }
+#results td,#results th { padding:7px 18px; border-bottom:1px solid rgba(255,255,255,.15); }
+#results .me { color:#ffd23c; font-weight:bold; }
+#results button { pointer-events:auto; cursor:pointer; font-size:20px; font-weight:bold; color:#0a0a12;
+          background:linear-gradient(90deg,#7ee0ff,#4aa3ff); border:none; border-radius:50px; padding:12px 40px; }
+
+/* audio button */
+#audioBtn { position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:15; pointer-events:auto;
+            cursor:pointer; font-size:13px; background:rgba(10,12,22,.6); border:1px solid rgba(255,255,255,.2);
+            color:#fff; border-radius:20px; padding:5px 14px; }
+@media (max-width:600px){
+  #overlay h1{font-size:42px;}
+  #speedBox .kmh{font-size:40px;}
+  #posBox{left:130px;}
+  #mapWrap{width:110px;height:110px;}
+}

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>APEX GP — 3D F1 Racer</title>
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+<div id="game"></div>
+
+<div id="hud">
+  <div id="lapBox" class="panel">LAP <b><span id="lapNow">1</span></b>/<span id="lapTot">3</span></div>
+  <div id="posBox" class="panel"><div class="big"><span id="posNow">6</span></div><div class="small">/ <span id="posTot">6</span></div></div>
+  <div id="timeBox" class="panel">
+    <div class="lbl">LAP TIME</div><div class="t" id="curTime">0:00.00</div>
+    <div class="lbl" style="margin-top:4px">BEST</div><div class="t" id="bestTime" style="color:#ffd23c">--:--.--</div>
+  </div>
+  <div id="mapWrap"><canvas id="map" width="300" height="300"></canvas></div>
+  <div id="standings" class="panel"><div class="hd">ORDER</div><div id="standRows"></div></div>
+  <div id="speedBox" class="panel"><span class="gear" id="gear">N</span><br><span class="kmh" id="kmh">0</span><span class="u"> km/h</span></div>
+  <div id="help" class="panel">
+    <kbd>W</kbd>/<kbd>↑</kbd> アクセル　<kbd>S</kbd>/<kbd>↓</kbd> ブレーキ<br>
+    <kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> ステア　<kbd>Space</kbd> ハンドブレーキ<br>
+    <kbd>C</kbd> カメラ切替　<kbd>X</kbd> コース復帰<br>
+    <kbd>M</kbd> ミュート　<kbd>R</kbd> リスタート　<kbd>H</kbd> ヘルプ表示
+  </div>
+</div>
+
+<div id="audioBtn">🔊 SOUND ON</div>
+<div id="count"></div>
+<div id="toast"></div>
+
+<div id="overlay">
+  <h1>APEX&nbsp;GP</h1>
+  <div class="sub">3D F1 RACER</div>
+  <button id="startBtn">▶ レース スタート</button>
+  <div class="ctrls">
+    <kbd>W A S D</kbd> または <kbd>方向キー</kbd> で運転 ・ <kbd>C</kbd> 視点切替 ・ <kbd>Space</kbd> ハンドブレーキ<br>
+    最後尾スタート → AIを抜いて 3周勝負！
+  </div>
+  <div id="loadNote">エンジン音・BGM はスタートで再生されます 🎵</div>
+</div>
+
+<div id="results">
+  <h2 id="resTitle">FINISH</h2>
+  <div class="fin" id="resFin"></div>
+  <table id="resTable"></table>
+  <button id="againBtn">もう一度 (R)</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+  if (typeof THREE === "undefined") {
+    document.getElementById('loadNote').innerHTML =
+      "⚠ three.js を読み込めませんでした。インターネット接続を確認して再読み込みしてください。";
+  }
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
