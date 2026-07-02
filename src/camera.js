@@ -5,6 +5,7 @@ import { TOP_SPEED } from './config.js';
 import { camera } from './scene.js';
 import { cars } from './cars.js';
 import { showToast } from './hud.js';
+import { ghost } from './ghost.js';
 
 let camMode=1; // 0 chase, 1 mid (default), 2 cockpit
 const camPos=new THREE.Vector3(0,30,-40);
@@ -46,4 +47,25 @@ export function idleCamFrame(){
   const t=performance.now()*0.0002;
   camera.position.set(Math.cos(t)*60, 28, Math.sin(t)*60 + 20);
   camera.lookAt(cars[0].pos.x, 1, cars[0].pos.z);
+}
+
+/* ---- Replay camera: a slightly wider, dreamier chase following the ghost ---- */
+const replayCamPos=new THREE.Vector3();
+let replayCamReady=false;
+
+export function resetReplayCamera(){ replayCamReady=false; }
+
+export function updateReplayCamera(dt){
+  const p=ghost;
+  const fwd=new THREE.Vector3(Math.sin(p.heading),0,Math.cos(p.heading));
+  const gy=p.groundY||0;
+  const desired=new THREE.Vector3().copy(p.pos).addScaledVector(fwd,-14); desired.y=gy+6.5;
+  if(!replayCamReady){ replayCamPos.copy(desired); replayCamReady=true; }
+  replayCamPos.lerp(desired, Math.min(1, dt*3.2));
+  camera.position.copy(replayCamPos);
+  const look=new THREE.Vector3().copy(p.pos).addScaledVector(fwd,8); look.y=gy+1.6;
+  camera.lookAt(look);
+  const targetFov=64;
+  camera.fov += (targetFov-camera.fov)*Math.min(1,dt*3);
+  camera.updateProjectionMatrix();
 }

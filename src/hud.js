@@ -6,6 +6,8 @@ import { N, TOTAL_LAPS, TOP_SPEED } from './config.js';
 import { SP } from './track.js';
 import { cars, PALETTE } from './cars.js';
 import { keys } from './input.js';
+import { getGhostFrames } from './ghost.js';
+import { frameTimeAtProgress } from './recorder.js';
 
 export const elc=id=>document.getElementById(id);
 const mapCtx=document.getElementById('map').getContext('2d');
@@ -48,6 +50,19 @@ export function updateHUD(order, clockT){
   elc('curTime').textContent=fmtTime(p.finished?p.lastLap:(p.lap>=1?clockT-p.lapStart:clockT));
   elc('bestTime').textContent=isFinite(p.bestLap)?fmtTime(p.bestLap):'--:--.--';
 
+  // live delta vs. the ghost car's recorded pace at the same point on the lap
+  const gd=elc('ghostDelta');
+  const frames=getGhostFrames();
+  if(frames && p.lap>=1 && !p.finished){
+    const ghostT=frameTimeAtProgress(frames, p.frac);
+    if(ghostT!=null){
+      const delta=(clockT-p.lapStart)-ghostT;
+      gd.textContent=(delta<=0?'-':'+')+Math.abs(delta).toFixed(2);
+      gd.style.color=delta<=0?'#4dff88':'#ff5252';
+      gd.style.display='block';
+    } else gd.style.display='none';
+  } else gd.style.display='none';
+
   let html='';
   order.forEach((c,i)=>{
     const lapInfo = c.finished?'FIN':('L'+Math.min(TOTAL_LAPS,Math.max(1,c.lap)));
@@ -64,6 +79,15 @@ export function tickToast(dt){ if(toastT>0){ toastT-=dt; if(toastT<=0) elc('toas
 export function showCount(txt){ const c=elc('count'); c.textContent=txt; c.style.opacity=1; c.style.transition='none';
   requestAnimationFrame(()=>{ c.style.transition='opacity .6s, transform .6s'; c.style.opacity=0; }); }
 
+/* ---- drift score popup ---- */
+export function showDriftPopup(points){
+  const el=elc('driftPop');
+  el.textContent='DRIFT +'+points;
+  el.classList.remove('show');
+  void el.offsetWidth;               // force reflow so the animation restarts on rapid re-triggers
+  el.classList.add('show');
+}
+
 /* ---- help panel ---- */
 let helpUserSet=false;
 export function toggleHelp(){
@@ -76,7 +100,7 @@ export function autoHideHelp(){
 }
 
 /* ---- results screen ---- */
-export function renderResults(final){
+export function renderResults(final, hasReplay){
   const me=cars[0];
   const pl=final.indexOf(me)+1;
   elc('resTitle').textContent = pl===1?'🏆 WINNER!':'FINISH — P'+pl;
@@ -84,6 +108,7 @@ export function renderResults(final){
   let t='<tr><th>POS</th><th>DRIVER</th><th>BEST LAP</th></tr>';
   final.forEach((c,i)=>{ t+=`<tr class="${c.isPlayer?'me':''}"><td>${i+1}</td><td>${c.name}</td><td>${isFinite(c.bestLap)?fmtTime(c.bestLap):'--'}</td></tr>`; });
   elc('resTable').innerHTML=t;
+  elc('replayBtn').style.display=hasReplay?'':'none';
   elc('results').style.display='flex';
 }
 export function hideResults(){ elc('results').style.display='none'; }

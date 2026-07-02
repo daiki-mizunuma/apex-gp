@@ -11,6 +11,7 @@ export function initInput(actions){
     keys[e.code]=true;
     if(e.code==='KeyC') actions.toggleCam();
     if(e.code==='KeyM') actions.toggleMute();
+    if(e.code==='KeyN') actions.nextTrack();
     if(e.code==='KeyR') actions.resetRace();
     if(e.code==='KeyB') actions.toggleBlur();
     if(e.code==='KeyH') actions.toggleHelp();

@@ -9,6 +9,7 @@ import { keys, readPad } from './input.js';
 import { Audio } from './audio.js';
 import { race } from './race.js';
 import { showToast } from './hud.js';
+import { getDifficulty } from './difficulty.js';
 
 const tmp=new THREE.Vector3();
 
@@ -69,6 +70,19 @@ export function updatePlayer(c, dt){
   if(braking && sp>22) screech=Math.max(screech, 0.4);   // brake squeal
   c.screech=screech;
 
+  // drift detection & scoring: sustained cornering-at-the-limit or handbrake
+  // slides (not plain braking, not off-track) count as a "drift". Points
+  // accrue while sliding and are awarded as one lump sum when the drift ends.
+  const drifting = race.state==='running' && onTrack && sp>18 && (overSpeed || (hand && sp>15));
+  if(drifting){
+    c.driftT=(c.driftT||0)+dt;
+    c.driftScore=(c.driftScore||0) + sp*Math.abs(c.steerVal||0)*dt*2.2;
+  } else if(c.driftT>0){
+    if(c.driftT>0.45 && c.driftScore>4) c.driftAward=Math.round(c.driftScore);
+    c.driftT=0; c.driftScore=0;
+  }
+  c.drifting=drifting;
+
   // integrate position
   const fwd=tmp.set(Math.sin(c.heading),0,Math.cos(c.heading));
   c.pos.addScaledVector(fwd, c.speed*dt);
@@ -120,9 +134,11 @@ export function updateAI(c, dt){
   }
 
   // rubber-band: keep the field within striking distance of the player
+  // (clamp range scales with the selected difficulty — see difficulty.js)
   if(!cars[0].finished){
+    const d=getDifficulty();
     const gap=c.progress-cars[0].progress;             // laps ahead (+) / behind (−)
-    targetSpeed *= Math.max(0.80, Math.min(1.06, 1-gap*0.30));
+    targetSpeed *= Math.max(d.rubberMin, Math.min(d.rubberMax, 1-gap*0.30));
   }
 
   const aiOff = Math.abs(c.lateral||0) > OFFTRACK;     // off the asphalt onto grass

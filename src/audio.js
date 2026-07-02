@@ -7,6 +7,7 @@ export const Audio = (function(){
   let ctx=null, master=null, musicGain=null, sfxGain=null;
   let engOsc1=null, engOsc2=null, engGain=null, engFilter=null, sub=null, subGain=null, engHi=null, engHiGain=null, lastGear=1;
   let noiseBuf=null, screechSrc=null, screechGain=null, screechFilter=null;
+  let leadDelayIn=null;
   let started=false, muted=false;
   let schedTimer=null;
 
@@ -44,6 +45,13 @@ export const Audio = (function(){
     screechFilter.connect(sfxGain);
     screechGain=ctx.createGain(); screechGain.gain.value=0; screechGain.connect(screechFilter);
     screechSrc=ctx.createBufferSource(); screechSrc.buffer=noiseBuf; screechSrc.loop=true; screechSrc.connect(screechGain); screechSrc.start();
+
+    // shared feedback delay bus for the lead voice (tracks opt in via voice.delayMix)
+    leadDelayIn=ctx.createGain(); leadDelayIn.gain.value=1;
+    const dly=ctx.createDelay(1.0); dly.delayTime.value=0.27;
+    const dlyFilt=ctx.createBiquadFilter(); dlyFilt.type='lowpass'; dlyFilt.frequency.value=2600;   // darken the repeats
+    const fb=ctx.createGain(); fb.gain.value=0.32;
+    leadDelayIn.connect(dly); dly.connect(dlyFilt); dlyFilt.connect(fb); fb.connect(dly); dlyFilt.connect(musicGain);
 
     started=true;
     startMusic();
@@ -106,24 +114,102 @@ export const Audio = (function(){
     n.start(t); n.stop(t+0.3);
   }
 
-  // ---- original music loop ----
-  const BPM=114, STEP=60/BPM/4;        // 16th, fusion groove
-  let nextTime=0, step=0;
+  // ---- music engine: a 4-bar / 64-step sequencer driven by per-track data ----
   function mid(n){ return 440*Math.pow(2,(n-69)/12); }
-  // Original jazz-fusion vamp (I–vi–ii–V in A): Amaj7 - F#m7 - Bm7 - E7
-  const ROOT=[45,42,47,40];
-  const CHORD=[[57,61,64,68],[54,57,61,64],[59,62,66,69],[52,56,59,62]];
-  const BASSPAT=[0,null,0,7,null,0,null,12,0,null,7,null,0,null,10,null];   // syncopated funk
-  const EPPAT  =[0,0,1,0,0,1,1,0,0,0,1,0,0,1,1,0];                          // off-beat EP comping
-  const KICK   =[1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0];
-  const SNARE  =[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0];
-  // Original sax-like lead over the 4 bars: [absStep, midi, durSteps]
-  const MEL={};
-  [[0,76,3],[3,73,1],[4,69,2],[7,71,1],[8,73,4],[13,69,1],[14,68,2],
-   [16,78,2],[18,76,1],[19,73,1],[20,69,3],[24,66,2],[27,69,1],[28,73,4],
-   [32,74,2],[34,78,2],[36,81,3],[40,78,1],[41,76,1],[42,74,2],[44,71,4],
-   [48,71,1],[49,74,1],[50,76,2],[52,80,2],[54,78,1],[55,76,1],[56,74,2],[58,71,2],[60,73,4]
-  ].forEach(a=>{MEL[a[0]]={m:a[1],d:a[2]};});
+  function buildMelLookup(mel){ const o={}; mel.forEach(m=>{ o[m.step]={m:m.note,d:m.dur}; }); return o; }
+
+  // Each track supplies: bpm, root (4 bar roots), chords (4x4 voicing), 16-step
+  // bassPattern (semitone offset from that bar's root, or null), padPattern/
+  // kickPattern/snarePattern (16-step 0/1 hit patterns), melody (note events
+  // across the 64-step loop), and per-instrument "voice" timbre parameters.
+  // All patterns/melodies below are original compositions written for this game.
+  const TRACKS=[
+    { name:'MIDNIGHT VECTOR',                             // synthwave night-drive
+      bpm:100,
+      root:[45,41,48,43],
+      chords:[[57,64,67,71],[53,57,60,64],[60,64,67,71],[55,59,62,69]],
+      bassPattern:[0,null,0,null,12,null,0,3,0,null,0,null,12,null,7,10],
+      padPattern:[1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0],
+      kickPattern:[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
+      snarePattern:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
+      melody:[{step:0,note:76,dur:4},{step:4,note:72,dur:2},{step:8,note:69,dur:3},{step:12,note:71,dur:3},{step:16,note:69,dur:2},{step:18,note:72,dur:2},{step:22,note:77,dur:4},{step:26,note:76,dur:2},{step:28,note:72,dur:3},
+        {step:32,note:67,dur:2},{step:34,note:76,dur:3},{step:38,note:74,dur:2},{step:40,note:72,dur:2},{step:42,note:71,dur:2},{step:44,note:67,dur:4},{step:48,note:69,dur:2},{step:50,note:74,dur:2},{step:52,note:78,dur:3},
+        {step:55,note:76,dur:1},{step:56,note:74,dur:2},{step:60,note:71,dur:2},{step:62,note:69,dur:2}],
+      voices:{
+        bass:{ osc:'sawtooth', osc2:'sine', filterFreq:380 },
+        pad: { osc1:'sawtooth', osc2:'sawtooth', detune:12, filterType:'lowpass', filterFreq:1400, attack:0.06 },
+        lead:{ osc1:'sawtooth', osc2:'sawtooth', detune:9, filterType:'lowpass', filterFreq:2600, scoop:0.993, delayMix:0.22 },
+      }
+    },
+    { name:'REDLINE ASCENSION',                           // epic cinematic tension-builder
+      bpm:128,
+      root:[50,46,41,48],
+      chords:[[50,53,57,62],[46,50,53,58],[41,45,48,53],[48,52,55,60]],
+      bassPattern:[0,null,7,null,0,null,7,10,0,null,7,null,0,7,10,12],
+      padPattern:[1,0,0,1,0,0,1,0,1,0,0,1,0,0,1,0],
+      kickPattern:[1,0,0,1,0,0,1,0,1,0,0,1,0,1,0,0],
+      snarePattern:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
+      melody:[{step:0,note:74,dur:3},{step:3,note:77,dur:1},{step:4,note:79,dur:2},{step:6,note:81,dur:2},{step:8,note:77,dur:3},{step:12,note:74,dur:2},{step:14,note:72,dur:2},
+        {step:16,note:70,dur:3},{step:19,note:74,dur:1},{step:20,note:77,dur:2},{step:22,note:81,dur:2},{step:24,note:82,dur:3},{step:28,note:79,dur:2},{step:30,note:77,dur:2},
+        {step:32,note:77,dur:2},{step:34,note:77,dur:1},{step:35,note:79,dur:1},{step:36,note:81,dur:2},{step:38,note:84,dur:2},{step:40,note:81,dur:3},{step:44,note:79,dur:1},{step:45,note:77,dur:1},{step:46,note:74,dur:2},
+        {step:48,note:72,dur:3},{step:51,note:74,dur:1},{step:52,note:77,dur:2},{step:54,note:79,dur:2},{step:56,note:81,dur:4},{step:60,note:79,dur:2},{step:62,note:77,dur:2}],
+      voices:{
+        bass:{ osc:'sawtooth', osc2:'sine', filterFreq:900, filterFreqEnd:450, filterEnvTime:0.09 },
+        pad: { osc1:'sawtooth', osc2:'sawtooth', detune:7, filterType:'lowpass', filterFreq:2000, attack:0.06 },
+        lead:{ osc1:'sawtooth', osc2:'triangle', detune:5, filterType:'lowpass', filterFreq:3200, filterFreqEnd:2200, filterEnvTime:0.09, filterQ:1.2, scoop:0.975, scoopTime:0.08 },
+      }
+    },
+    { name:'MIDNIGHT MOTORWAY',                           // upbeat 70s funk/disco
+      bpm:112,
+      root:[40,45,40,47],
+      chords:[[56,59,62,66],[61,64,67,71],[56,59,62,66],[59,63,66,69]],
+      bassPattern:[0,0,null,0,7,null,0,10,null,0,null,7,12,null,10,7],
+      padPattern:[0,1,0,1,0,0,1,0,0,1,0,1,0,0,1,0],
+      kickPattern:[1,0,0,1,0,0,1,0,1,0,0,1,0,0,1,0],
+      snarePattern:[0,0,1,0,0,0,1,0,0,0,1,0,0,1,1,0],
+      melody:[{step:2,note:71,dur:2},{step:4,note:76,dur:3},{step:8,note:75,dur:1},{step:9,note:76,dur:1},{step:10,note:78,dur:3},{step:14,note:76,dur:2},{step:18,note:71,dur:2},
+        {step:20,note:73,dur:1},{step:21,note:71,dur:1},{step:22,note:68,dur:4},{step:28,note:71,dur:1},{step:29,note:73,dur:1},{step:30,note:75,dur:2},{step:34,note:78,dur:2},{step:36,note:80,dur:3},
+        {step:40,note:78,dur:1},{step:41,note:80,dur:1},{step:42,note:83,dur:3},{step:46,note:80,dur:2},{step:50,note:75,dur:2},{step:52,note:76,dur:1},{step:53,note:75,dur:1},{step:54,note:71,dur:4},
+        {step:59,note:73,dur:1},{step:60,note:75,dur:1},{step:61,note:71,dur:1},{step:62,note:68,dur:2}],
+      voices:{
+        bass:{ osc:'sawtooth', filterFreq:700, filterFreqEnd:380, filterEnvTime:0.045 },
+        pad: { osc1:'square', osc2:'sine', detune:0, filterType:'bandpass', filterFreq:1500, filterQ:3.5, attack:0.006, decayMul:0.5 },
+        lead:{ osc1:'sawtooth', osc2:'square', detune:3, filterType:'lowpass', filterFreq:2400, scoop:0.991 },
+      }
+    },
+    { name:'REDLINE HORIZON',                             // uptempo Japanese-style fusion/jazz-rock
+      bpm:158,
+      root:[43,38,45,41],
+      chords:[[62,67,71,74],[57,62,65,69],[64,69,72,76],[60,65,69,72]],
+      bassPattern:[0,null,12,7,null,10,null,0,12,null,7,10,0,null,12,7],
+      padPattern:[1,0,0,1,0,1,0,0,1,0,0,1,0,1,1,0],
+      kickPattern:[1,0,0,1,0,0,1,0,1,0,0,1,0,0,1,0],
+      snarePattern:[0,0,1,0,0,0,1,0,0,0,1,0,0,1,1,0],
+      melody:[{step:0,note:79,dur:2},{step:2,note:82,dur:2},{step:4,note:79,dur:1},{step:5,note:76,dur:1},{step:6,note:74,dur:2},{step:8,note:79,dur:3},{step:12,note:81,dur:1},{step:13,note:79,dur:1},{step:14,note:77,dur:2},
+        {step:16,note:74,dur:2},{step:18,note:77,dur:2},{step:20,note:74,dur:1},{step:21,note:72,dur:1},{step:22,note:69,dur:2},{step:24,note:74,dur:4},{step:29,note:77,dur:1},{step:30,note:79,dur:2},
+        {step:32,note:84,dur:2},{step:34,note:81,dur:1},{step:35,note:79,dur:1},{step:36,note:77,dur:2},{step:38,note:79,dur:2},{step:40,note:76,dur:3},{step:44,note:78,dur:1},{step:45,note:76,dur:1},{step:46,note:74,dur:2},
+        {step:48,note:79,dur:2},{step:50,note:82,dur:2},{step:52,note:79,dur:1},{step:53,note:77,dur:1},{step:54,note:74,dur:2},{step:56,note:72,dur:4},{step:61,note:74,dur:1},{step:62,note:77,dur:2}],
+      voices:{
+        bass:{ osc:'sawtooth', filterFreq:850, filterFreqEnd:480, filterEnvTime:0.05 },
+        pad: { osc1:'square', osc2:'sine', detune:0, filterType:'bandpass', filterFreq:1800, filterQ:2.5, attack:0.006, decayMul:0.6 },
+        lead:{ osc1:'sawtooth', osc2:'triangle', detune:8, filterType:'lowpass', filterFreq:2900, filterQ:1.2, scoop:0.985, scoopTime:0.04, attack:0.015 },
+      }
+    },
+  ];
+  TRACKS.forEach(tr=>{ tr.melLookup=buildMelLookup(tr.melody); });
+
+  let curTrackIdx=0;
+  let STEP=60/TRACKS[0].bpm/4;          // 16th-note duration, recomputed on track switch
+  let nextTime=0, step=0;
+
+  function setTrack(idx){
+    curTrackIdx=((idx%TRACKS.length)+TRACKS.length)%TRACKS.length;
+    STEP=60/TRACKS[curTrackIdx].bpm/4;
+    if(started){ step=0; nextTime=ctx.currentTime+0.05; }   // resync cleanly at the switch point
+  }
+  function nextTrack(){ setTrack(curTrackIdx+1); return TRACKS[curTrackIdx].name; }
+  function getTrackName(){ return TRACKS[curTrackIdx].name; }
+  function getTrackIndex(){ return curTrackIdx; }
 
   function kick(t){ const o=ctx.createOscillator(),g=ctx.createGain();
     o.frequency.setValueAtTime(155,t); o.frequency.exponentialRampToValueAtTime(48,t+0.11);
@@ -137,34 +223,55 @@ export const Audio = (function(){
     const f=ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=8500;
     const g=ctx.createGain(); g.gain.setValueAtTime(acc?0.16:0.07,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.04);
     n.connect(f); f.connect(g); g.connect(musicGain); n.start(t); n.stop(t+0.05); }
-  function bass(t,freq){ const o=ctx.createOscillator(),g=ctx.createGain(),f=ctx.createBiquadFilter();
-    o.type='sawtooth'; o.frequency.value=freq; f.type='lowpass'; f.frequency.value=520;
+  function bass(t,freq,v){
+    const o=ctx.createOscillator(),g=ctx.createGain(),f=ctx.createBiquadFilter();
+    o.type=v.osc||'sawtooth'; o.frequency.value=freq;
+    let o2=null;
+    if(v.osc2){ o2=ctx.createOscillator(); o2.type=v.osc2; o2.frequency.value=freq/2; }   // sub layer, an octave down
+    f.type='lowpass';
+    if(v.filterFreqEnd!=null){ f.frequency.setValueAtTime(v.filterFreq,t); f.frequency.exponentialRampToValueAtTime(v.filterFreqEnd,t+(v.filterEnvTime||0.08)); }
+    else f.frequency.value=v.filterFreq;
     g.gain.setValueAtTime(0.0,t); g.gain.linearRampToValueAtTime(0.30,t+0.012); g.gain.setTargetAtTime(0.0001,t+0.14,0.09);
-    o.connect(f); f.connect(g); g.connect(musicGain); o.start(t); o.stop(t+STEP*2); }
-  function ep(t,notes){ notes.forEach((nn,k)=>{ if(k>3)return;
+    o.connect(f);
+    if(o2){ const g2=ctx.createGain(); g2.gain.value=0.5; o2.connect(g2); g2.connect(f); }
+    f.connect(g); g.connect(musicGain);
+    o.start(t); o.stop(t+STEP*2); if(o2){ o2.start(t); o2.stop(t+STEP*2); }
+  }
+  function pad(t,notes,v){ notes.forEach((nn,k)=>{ if(k>3)return;
     const o=ctx.createOscillator(),o2=ctx.createOscillator(),g=ctx.createGain(),f=ctx.createBiquadFilter();
-    o.type='sine'; o2.type='triangle'; o.frequency.value=mid(nn); o2.frequency.value=mid(nn); o2.detune.value=6;
-    f.type='lowpass'; f.frequency.value=1900;
-    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.05,t+0.015); g.gain.exponentialRampToValueAtTime(0.0006,t+STEP*2.4);
-    o.connect(f); o2.connect(f); f.connect(g); g.connect(musicGain); o.start(t); o2.start(t); o.stop(t+STEP*2.6); o2.stop(t+STEP*2.6); }); }
-  function lead(t,freq,dur){ const o=ctx.createOscillator(),o2=ctx.createOscillator(),g=ctx.createGain(),f=ctx.createBiquadFilter();
-    o.type='sawtooth'; o2.type='triangle'; o2.detune.value=4;
-    o.frequency.setValueAtTime(freq*0.991,t); o.frequency.linearRampToValueAtTime(freq,t+0.05);
-    o2.frequency.setValueAtTime(freq*0.991,t); o2.frequency.linearRampToValueAtTime(freq,t+0.05);
-    f.type='lowpass'; f.frequency.value=2300;
-    const d=Math.max(0.12,dur);
-    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.15,t+0.025); g.gain.setValueAtTime(0.13,t+d*0.6); g.gain.exponentialRampToValueAtTime(0.0008,t+d+0.1);
-    o.connect(f); o2.connect(f); f.connect(g); g.connect(musicGain); o.start(t); o2.start(t); o.stop(t+d+0.14); o2.stop(t+d+0.14); }
+    o.type=v.osc1||'sine'; o2.type=v.osc2||'triangle'; o.frequency.value=mid(nn); o2.frequency.value=mid(nn); o2.detune.value=v.detune!=null?v.detune:6;
+    f.type=v.filterType||'lowpass'; f.frequency.value=v.filterFreq||1900; if(v.filterQ!=null) f.Q.value=v.filterQ;
+    const atk=v.attack!=null?v.attack:0.015, dec=v.decayMul!=null?v.decayMul:2.4;
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.05,t+atk); g.gain.exponentialRampToValueAtTime(0.0006,t+STEP*dec);
+    o.connect(f); o2.connect(f); f.connect(g); g.connect(musicGain);
+    o.start(t); o2.start(t); o.stop(t+STEP*dec+0.15); o2.stop(t+STEP*dec+0.15); }); }
+  function lead(t,freq,dur,v){
+    const o=ctx.createOscillator(),o2=ctx.createOscillator(),g=ctx.createGain(),f=ctx.createBiquadFilter();
+    o.type=v.osc1||'sawtooth'; o2.type=v.osc2||'triangle'; o2.detune.value=v.detune!=null?v.detune:4;
+    const scoop=v.scoop!=null?v.scoop:0.991, scoopT=v.scoopTime!=null?v.scoopTime:0.05;
+    o.frequency.setValueAtTime(freq*scoop,t); o.frequency.linearRampToValueAtTime(freq,t+scoopT);
+    o2.frequency.setValueAtTime(freq*scoop,t); o2.frequency.linearRampToValueAtTime(freq,t+scoopT);
+    f.type=v.filterType||'lowpass';
+    if(v.filterFreqEnd!=null){ f.frequency.setValueAtTime(v.filterFreq,t); f.frequency.exponentialRampToValueAtTime(v.filterFreqEnd,t+(v.filterEnvTime||0.09)); }
+    else f.frequency.value=v.filterFreq||2300;
+    if(v.filterQ!=null) f.Q.value=v.filterQ;
+    const d=Math.max(0.12,dur), atk=v.attack!=null?v.attack:0.025;
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.15,t+atk); g.gain.setValueAtTime(0.13,t+d*0.6); g.gain.exponentialRampToValueAtTime(0.0008,t+d+0.1);
+    o.connect(f); o2.connect(f); f.connect(g); g.connect(musicGain);
+    if(v.delayMix){ const send=ctx.createGain(); send.gain.value=v.delayMix; g.connect(send); send.connect(leadDelayIn); }
+    o.start(t); o2.start(t); o.stop(t+d+0.14); o2.stop(t+d+0.14);
+  }
 
   function scheduleStep(s,t){
-    const bar=Math.floor(s/16)%4, w=s%16, root=ROOT[bar], chord=CHORD[bar];
-    if(KICK[w]) kick(t);
-    if(SNARE[w]) snare(t,false);
-    if(w===14) snare(t,true);
+    const tr=TRACKS[curTrackIdx];
+    const bar=Math.floor(s/16)%4, w=s%16, root=tr.root[bar], chord=tr.chords[bar];
+    if(tr.kickPattern[w]) kick(t);
+    if(tr.snarePattern[w]) snare(t,false);
+    if(tr.ghostSnare && tr.ghostSnare[w]) snare(t,true);
     hat(t, w%4===2);
-    const bo=BASSPAT[w]; if(bo!==null) bass(t, mid(root+bo));
-    if(EPPAT[w]) ep(t, chord);
-    const m=MEL[s%64]; if(m) lead(t, mid(m.m), m.d*STEP);
+    const bo=tr.bassPattern[w]; if(bo!=null) bass(t, mid(root+bo), tr.voices.bass);
+    if(tr.padPattern[w]) pad(t, chord, tr.voices.pad);
+    const m=tr.melLookup[s%64]; if(m) lead(t, mid(m.m), m.d*STEP, tr.voices.lead);
   }
   function scheduler(){
     if(!started||!ctx) return;
@@ -181,5 +288,5 @@ export const Audio = (function(){
   function setMuted(m){ muted=m; if(master&&ctx) master.gain.setTargetAtTime(m?0:0.9, ctx.currentTime,0.05); }
   function isMuted(){ return muted; }
   function resume(){ if(ctx&&ctx.state==='suspended') ctx.resume(); }
-  return { init, engine, screech, thud, downfire, setMuted, isMuted, resume, get started(){return started;} };
+  return { init, engine, screech, thud, downfire, setMuted, isMuted, resume, setTrack, nextTrack, getTrackName, getTrackIndex, get started(){return started;} };
 })();

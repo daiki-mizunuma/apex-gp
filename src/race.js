@@ -3,15 +3,21 @@
    ===================================================================== */
 import { TOTAL_LAPS } from './config.js';
 import { cars, placeGrid } from './cars.js';
-import { showCount, autoHideHelp, renderResults, hideResults } from './hud.js';
+import { showCount, autoHideHelp, renderResults, hideResults, elc } from './hud.js';
 import { setCamMode } from './camera.js';
+import { newRecording } from './recorder.js';
+import { loadRecord, saveBestLap } from './storage.js';
+import { setGhostFrames } from './ghost.js';
+import { getDifficulty } from './difficulty.js';
 
 /* mutable race state shared across modules */
 export const race = {
   state:'idle',          // idle, countdown, running, finished
   clockT:0,
   countVal:0, countTimer:0,
-  finishOrder:[]
+  finishOrder:[],
+  currentRecording:newRecording(),  // player's in-progress lap recording
+  bestRecording:null                // frames for the best lap set THIS session (for the Replay button)
 };
 
 export function startCountdown(){
@@ -22,6 +28,15 @@ export function startCountdown(){
 export function resetRace(){
   placeGrid();
   cars.forEach(c=>{ c.lastLap=0; c.bestLap=Infinity; c.finished=false; c.place=c.id+1; c.lapStart=0; });
+
+  // seed the player's best lap / ghost from persisted storage so both survive reloads
+  const rec=loadRecord();
+  cars[0].bestLap=(rec.bestLap!=null)?rec.bestLap:Infinity;
+  setGhostFrames(rec.ghost);
+  race.currentRecording=newRecording();
+  race.bestRecording=null;
+
+  elc('diffLbl').textContent=getDifficulty().label;
   hideResults();
   setCamMode(0);
   startCountdown();
@@ -54,8 +69,16 @@ function onLap(c){
     const lapTime=race.clockT - c.lapStart;
     c.lastLap=lapTime;
     if(lapTime<c.bestLap) c.bestLap=lapTime;
+    if(c.isPlayer){
+      const frames=race.currentRecording.frames;
+      if(saveBestLap(lapTime, frames)){
+        race.bestRecording=frames;
+        setGhostFrames(frames);          // chase your own new best from here on
+      }
+    }
   }
   c.lapStart=race.clockT;
+  if(c.isPlayer) race.currentRecording=newRecording();   // start recording the next lap fresh
   if(c.lap > TOTAL_LAPS && !c.finished){
     c.finished=true; c.finishTime=race.clockT; race.finishOrder.push(c);
     if(c.isPlayer) onPlayerFinish();
@@ -84,5 +107,6 @@ function showResults(){
     if(a.finished) return -1; if(b.finished) return 1;
     return b.progress-a.progress;
   });
-  renderResults(final);
+  const hasReplay=!!(race.bestRecording || loadRecord().ghost);
+  renderResults(final, hasReplay);
 }

@@ -17,6 +17,9 @@ canvas { display:block; }
 #timeBox { top:14px; right:14px; text-align:right; font-variant-numeric:tabular-nums; }
 #timeBox .t { font-size:20px; color:#7ee0ff; }
 #timeBox .lbl { font-size:11px; opacity:.7; letter-spacing:1px; }
+#ghostDelta { font-size:16px; font-weight:bold; }
+
+.diff-lbl { font-size:10px; font-weight:normal; opacity:.65; letter-spacing:1px; margin-top:2px; }
 
 #speedBox { bottom:14px; left:50%; transform:translateX(-50%); text-align:center; }
 #speedBox .kmh { font-size:54px; font-weight:bold; line-height:.9; color:#fff; }
@@ -42,6 +45,24 @@ canvas { display:block; }
 #toast { position:fixed; top:30%; left:50%; transform:translateX(-50%); z-index:20; font-size:40px;
          font-weight:bold; color:#ffd23c; text-shadow:0 0 24px #000,0 3px 6px #000; opacity:0; transition:opacity .3s; pointer-events:none; }
 
+/* drift score popup */
+#driftPop { position:fixed; bottom:130px; left:50%; transform:translateX(-50%) translateY(0); z-index:18;
+            font-size:28px; font-weight:bold; color:#ffb23c; text-shadow:0 0 16px #000,0 2px 4px #000;
+            opacity:0; pointer-events:none; }
+#driftPop.show { animation: driftPopAnim 1.1s ease-out forwards; }
+@keyframes driftPopAnim {
+  0%   { opacity:0; transform:translateX(-50%) translateY(10px) scale(.85); }
+  15%  { opacity:1; transform:translateX(-50%) translateY(-6px) scale(1.08); }
+  30%  { opacity:1; transform:translateX(-50%) translateY(-10px) scale(1); }
+  100% { opacity:0; transform:translateX(-50%) translateY(-56px) scale(1); }
+}
+
+/* replay bar */
+#replayBar { position:fixed; top:58px; left:50%; transform:translateX(-50%); z-index:16; display:none;
+             pointer-events:none; font-size:13px; font-weight:bold; letter-spacing:1px; color:#0a0a12;
+             background:linear-gradient(90deg,#7ee0ff,#4aa3ff); border-radius:20px; padding:6px 16px;
+             box-shadow:0 4px 16px rgba(0,0,0,.35); }
+
 /* help */
 #help { top:84px; left:14px; font-size:12px; line-height:1.7; opacity:.85; max-width:240px; transition:opacity .4s; }
 #help kbd { background:#222; border:1px solid #555; border-bottom-width:2px; border-radius:4px; padding:1px 6px; font-family:monospace; }
@@ -51,7 +72,18 @@ canvas { display:block; }
            background:radial-gradient(circle at 50% 35%, #1b2340, #070710 75%); text-align:center; padding:20px; }
 #overlay h1 { font-size:64px; letter-spacing:6px; background:linear-gradient(90deg,#ff2d2d,#ffd23c);
               -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:6px; }
-#overlay .sub { opacity:.85; margin-bottom:26px; font-size:16px; letter-spacing:2px; }
+#overlay .sub { opacity:.85; margin-bottom:22px; font-size:16px; letter-spacing:2px; }
+.diff-picker { display:flex; gap:10px; margin-bottom:24px; pointer-events:auto; }
+.diff-btn { cursor:pointer; font-size:14px; font-weight:bold; letter-spacing:1px; color:#cfd6e6;
+            background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.25); border-radius:20px;
+            padding:8px 20px; transition:all .15s; }
+.diff-btn:hover { background:rgba(255,255,255,.14); }
+.diff-btn.active { color:#0a0a12; background:linear-gradient(90deg,#ffd23c,#ff8a00); border-color:transparent; }
+.bgm-picker { display:flex; align-items:center; gap:14px; margin-bottom:26px; pointer-events:auto; }
+.bgm-arrow { cursor:pointer; font-size:14px; color:#cfd6e6; background:rgba(255,255,255,.06);
+             border:1px solid rgba(255,255,255,.25); border-radius:50%; width:30px; height:30px; line-height:1; transition:all .15s; }
+.bgm-arrow:hover { background:rgba(255,255,255,.16); }
+#bgmName { font-size:13px; font-weight:bold; letter-spacing:1px; color:#7ee0ff; min-width:170px; }
 #startBtn { pointer-events:auto; cursor:pointer; font-size:26px; font-weight:bold; color:#0a0a12;
             background:linear-gradient(90deg,#ffd23c,#ff8a00); border:none; border-radius:50px; padding:16px 54px;
             box-shadow:0 8px 30px rgba(255,140,0,.5); transition:transform .12s; letter-spacing:2px; }
@@ -68,8 +100,10 @@ canvas { display:block; }
 #results table { border-collapse:collapse; font-size:16px; margin-bottom:22px; }
 #results td,#results th { padding:7px 18px; border-bottom:1px solid rgba(255,255,255,.15); }
 #results .me { color:#ffd23c; font-weight:bold; }
+#results .res-btns { display:flex; gap:16px; }
 #results button { pointer-events:auto; cursor:pointer; font-size:20px; font-weight:bold; color:#0a0a12;
           background:linear-gradient(90deg,#7ee0ff,#4aa3ff); border:none; border-radius:50px; padding:12px 40px; }
+#results #replayBtn { background:linear-gradient(90deg,#ffb23c,#ff7a3c); }
 
 /* audio button */
 #audioBtn { position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:15; pointer-events:auto;
@@ -80,4 +114,6 @@ canvas { display:block; }
   #speedBox .kmh{font-size:40px;}
   #posBox{left:130px;}
   #mapWrap{width:110px;height:110px;}
+  .diff-btn{font-size:12px;padding:7px 14px;}
+  #results .res-btns{flex-direction:column;gap:10px;}
 }

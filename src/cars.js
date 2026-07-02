@@ -5,6 +5,7 @@ import { N, NUM_CARS } from './config.js';
 import { scene } from './scene.js';
 import { liveryTex } from './textures.js';
 import { SP, FWD, RT, trackLen } from './track.js';
+import { getDifficulty } from './difficulty.js';
 
 /* shared (non-coloured) car materials — reflect scene.environment */
 const MAT = {
@@ -41,7 +42,7 @@ function makeWheel(r, width){
   hub.rotation.z=Math.PI/2; pivot.add(hub);
   return pivot;
 }
-function buildCar(base, accent, num){
+export function buildCar(base, accent, num){
   const car=new THREE.Group();
   const paint   = new THREE.MeshStandardMaterial({ map:liveryTex(base,accent,num), metalness:0.55, roughness:0.26 });
   const accentM = new THREE.MeshStandardMaterial({ color:accent, metalness:0.55, roughness:0.3 });
@@ -142,6 +143,7 @@ for(let i=0;i<NUM_CARS;i++){
 /* place grid behind start line */
 export function placeGrid(){
   const spacing=trackLen/N;
+  const d=getDifficulty();
   // order: AIs in front, player last
   const order=[1,2,3,4,5,0];
   order.forEach((carIdx, slot)=>{
@@ -155,6 +157,8 @@ export function placeGrid(){
     c.seg=idx; c.frac=idx/N; c.prevFrac=c.frac;
     c.speed=0; c.lap=0; c.progress=c.frac; c.finished=false; c.bestLap=Infinity;
     c.lane = side*3.2; c.slip=0; c.stuckT=0; c.steerVal=0;
+    c.driftT=0; c.driftScore=0; c.driftAward=0; c.drifting=false;
+    if(!c.isPlayer) c.skill = d.skillMin + Math.random()*(d.skillMax-d.skillMin);
     syncMesh(c);
   });
 }
