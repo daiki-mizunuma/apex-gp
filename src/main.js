@@ -1,6 +1,7 @@
 /* =====================================================================
    APEX GP — MAIN (wiring + game loop + boot)
    ===================================================================== */
+import * as THREE from 'three';
 import { TOTAL_LAPS, NUM_CARS } from './config.js';
 import { renderer, scene, camera, sun } from './scene.js';
 import './environment.js';
@@ -17,6 +18,7 @@ import { recordSample } from './recorder.js';
 import { updateGhost, hideGhost } from './ghost.js';
 import { isPlaying as replayIsPlaying, startReplay, stopReplay, updateReplay } from './replay.js';
 import { initSmoke, spawnSmoke, updateSmoke } from './fx.js';
+import { clampAnisotropy } from './textures.js';
 import { setDifficulty, getDifficulty, diffState } from './difficulty.js';
 import { loadDifficulty, saveDifficulty, loadRecord, loadTrack, saveTrack } from './storage.js';
 
@@ -101,8 +103,15 @@ const clock=new THREE.Clock();
 const tmp=new THREE.Vector3();
 const smokeTmp=new THREE.Vector3();
 
+let anisoClamped=false;
 function animate(){
-  requestAnimationFrame(animate);
+  // one-shot, first frame after backend init: clamp texture anisotropy to the
+  // real device limit (matters on the WebGL2 fallback; WebGPU guarantees 16)
+  if(!anisoClamped){
+    anisoClamped=true;
+    try{ const m=renderer.getMaxAnisotropy(); if(m>0&&m<16) clampAnisotropy(m); else if(!m) clampAnisotropy(1); }
+    catch(_e){ clampAnisotropy(1); }
+  }
   gamepadActions(actions);
   let dt=clock.getDelta(); if(dt>0.05) dt=0.05;
 
@@ -169,8 +178,21 @@ function animate(){
   updateHUD(order, race.clockT);
   tickToast(dt);
 
-  if(MBLUR.ok && MBLUR.on){ try{ MBLUR.render(Math.abs(cars[0].speed)); }catch(err){ MBLUR.toggle(); renderer.setRenderTarget(null); renderer.render(scene,camera); } }
-  else { renderer.setRenderTarget(null); renderer.render(scene,camera); }
+  // always render through MBLUR when available (damp=0 while toggled off) so
+  // the accumulation buffer stays fresh — see mblur.js
+  if(MBLUR.ok){
+    try{ MBLUR.render(Math.abs(cars[0].speed)); }
+    catch(err){
+      console.warn('motion blur failed, falling back to plain rendering', err);
+      MBLUR.disable();
+      // PostProcessing.render() may have died between overriding and restoring
+      // renderer output state — put the defaults back before plain rendering
+      renderer.outputColorSpace=THREE.SRGBColorSpace;
+      renderer.toneMapping=THREE.NoToneMapping;
+      renderer.render(scene,camera);
+    }
+  }
+  else { renderer.render(scene,camera); }
 }
 
 /* ---------------- boot ---------------- */
@@ -193,4 +215,6 @@ elc('posTot').textContent=NUM_CARS;
 elc('diffLbl').textContent=getDifficulty().label;
 placeGrid();
 idleCamFrame();   // pre-start camera framing
-animate();
+// setAnimationLoop (not rAF) so three can finish WebGPU's async backend init
+// before the first render call
+renderer.setAnimationLoop(animate);

@@ -1,6 +1,7 @@
 /* =====================================================================
    APEX GP — TRACK (centreline data, terrain helpers, road meshes)
    ===================================================================== */
+import * as THREE from 'three';
 import { N, ROAD_HALF, KERB_W, WALL_LAT, TOP_SPEED, GRIP } from './config.js';
 import { scene } from './scene.js';
 import { TEX } from './textures.js';

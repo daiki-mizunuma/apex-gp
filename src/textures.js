@@ -1,16 +1,28 @@
 /* =====================================================================
    APEX GP — Procedural textures (canvas)
    ===================================================================== */
-import { renderer } from './scene.js';
+import * as THREE from 'three';
 
-const MAXANI = renderer.capabilities.getMaxAnisotropy();
+// WebGPU guarantees anisotropy up to 16, but on the WebGL2 fallback the real
+// device limit is only knowable after the async backend init. Textures start
+// at 16 and main.js clamps them via clampAnisotropy() on the first frame
+// (protects rare WebGL2 devices without the anisotropic-filtering extension).
+const MAXANI=16;
+const anisoTextures=[];
+
+export function clampAnisotropy(max){
+  for(const t of anisoTextures){
+    if(t.anisotropy>max){ t.anisotropy=max; t.needsUpdate=true; }
+  }
+}
 
 export function cvs(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; return c; }
 export function texFrom(canvas, srgb){
   const t=new THREE.CanvasTexture(canvas);
   t.wrapS=t.wrapT=THREE.RepeatWrapping; t.anisotropy=MAXANI;
   t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter;
-  if(srgb) t.encoding=THREE.sRGBEncoding;
+  if(srgb) t.colorSpace=THREE.SRGBColorSpace;
+  anisoTextures.push(t);
   return t;
 }
 // seamless fractal value-noise (FBM) -> Float32 [0,1]
@@ -141,7 +153,7 @@ export function skyTex(){
     const scale=0.55 + (cyp/H)*1.1 + Math.random()*0.4;
     cloud(80+Math.random()*(W-160), cyp, scale, 0.88);
   }
-  const t=new THREE.CanvasTexture(c); t.wrapS=THREE.RepeatWrapping; t.anisotropy=MAXANI; t.encoding=THREE.sRGBEncoding; return t;
+  const t=new THREE.CanvasTexture(c); t.wrapS=THREE.RepeatWrapping; t.anisotropy=MAXANI; t.colorSpace=THREE.SRGBColorSpace; anisoTextures.push(t); return t;
 }
 export function liveryTex(base, accent){
   const S=512, c=cvs(S,S), x=c.getContext('2d');
@@ -191,7 +203,7 @@ export function panoramaTex(){
       const y=H*0.75 - (Math.sin(t*40)*0.5+0.5)*20 - (Math.sin(t*97)*0.5+0.5)*11; x.lineTo(px,y); }
     x.lineTo(W,H); x.closePath(); x.fill();
   })();
-  const t=new THREE.CanvasTexture(c); t.wrapS=THREE.RepeatWrapping; t.anisotropy=MAXANI; t.encoding=THREE.sRGBEncoding; return t;
+  const t=new THREE.CanvasTexture(c); t.wrapS=THREE.RepeatWrapping; t.anisotropy=MAXANI; t.colorSpace=THREE.SRGBColorSpace; anisoTextures.push(t); return t;
 }
 
 export const TEX = { asphalt:asphaltTex(), grass:grassTex(), kerb:kerbTex(), checker:checkerTex() };

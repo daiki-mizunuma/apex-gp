@@ -1,6 +1,7 @@
 /* =====================================================================
    APEX GP — CAMERA (chase / mid / cockpit + idle orbit)
    ===================================================================== */
+import * as THREE from 'three';
 import { TOP_SPEED } from './config.js';
 import { camera } from './scene.js';
 import { cars } from './cars.js';

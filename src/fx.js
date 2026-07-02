@@ -9,6 +9,7 @@
    updateSmoke, called every frame while drifting) does no allocation and
    never touches the scene graph — only cheap property mutation.
    ===================================================================== */
+import * as THREE from 'three';
 
 const POOL_SIZE = 48;
 

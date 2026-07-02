@@ -1,6 +1,7 @@
 /* =====================================================================
    APEX GP — CARS (model building, state, grid placement, track locate)
    ===================================================================== */
+import * as THREE from 'three';
 import { N, NUM_CARS } from './config.js';
 import { scene } from './scene.js';
 import { liveryTex } from './textures.js';

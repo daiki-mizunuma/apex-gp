@@ -2,6 +2,7 @@
    APEX GP — Scenery (trees, grandstands, Dunlop bridge, pits, barriers,
    billboards)  — side-effect module: builds scenery into the scene
    ===================================================================== */
+import * as THREE from 'three';
 import { N, ROAD_HALF, KERB_W, WALL_LAT } from './config.js';
 import { scene } from './scene.js';
 import { cvs } from './textures.js';
@@ -74,7 +75,7 @@ try{(function dunlop(){
   x.fillStyle='#ffd400'; x.fillRect(0,0,512,128);
   x.fillStyle='#0b2a63'; x.fillRect(0,0,512,18); x.fillRect(0,110,512,18);
   x.fillStyle='#0b2a63'; x.font='bold 92px Arial'; x.textAlign='center'; x.textBaseline='middle'; x.fillText('DUNLOP',256,70);
-  const tex=new THREE.CanvasTexture(cv); tex.encoding=THREE.sRGBEncoding;
+  const tex=new THREE.CanvasTexture(cv); tex.colorSpace=THREE.SRGBColorSpace;
   const banner=new THREE.Mesh(new THREE.BoxGeometry(R*1.5,3.2,0.4),
                new THREE.MeshStandardMaterial({map:tex, metalness:0.1, roughness:0.6}));
   banner.position.copy(c); banner.position.y=c.y+R*0.66; banner.rotation.y=rotY; banner.castShadow=true; scene.add(banner);
@@ -132,7 +133,7 @@ try{(function tsukubaScenery(){
       const cv=cvs(256,64), x=cv.getContext('2d');
       x.fillStyle=bgs[k]; x.fillRect(0,0,256,64);
       x.fillStyle=(bgs[k]==='#ffd400')?'#0b2a63':'#ffffff'; x.font='bold 36px Arial'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(txts[k],128,34);
-      const tex=new THREE.CanvasTexture(cv); tex.encoding=THREE.sRGBEncoding;
+      const tex=new THREE.CanvasTexture(cv); tex.colorSpace=THREE.SRGBColorSpace;
       const board=new THREE.Mesh(new THREE.BoxGeometry(8,2.2,0.3), new THREE.MeshStandardMaterial({map:tex, roughness:0.7}));
       board.position.set(pos.x,gy+2.6,pos.z); board.rotation.y=Math.atan2(f.x,f.z); board.castShadow=true; scene.add(board);
       const leg=new THREE.Mesh(new THREE.BoxGeometry(0.3,2.6,0.3), new THREE.MeshStandardMaterial({color:0x333740,roughness:0.7}));

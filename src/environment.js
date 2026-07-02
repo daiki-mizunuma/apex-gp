@@ -2,7 +2,8 @@
    APEX GP — Sky dome, 360° panorama backdrop, environment map
    (side-effect module: builds the environment into the scene)
    ===================================================================== */
-import { renderer, scene } from './scene.js';
+import * as THREE from 'three';
+import { scene } from './scene.js';
 import { cvs, skyTex, panoramaTex } from './textures.js';
 
 /* ---------------- Sky dome ---------------- */
@@ -31,9 +32,10 @@ import { cvs, skyTex, panoramaTex } from './textures.js';
     const rg=x.createRadialGradient(sxp,syp,0,sxp,syp,r);
     rg.addColorStop(0,'rgba(255,255,255,1)'); rg.addColorStop(1,'rgba(255,255,255,0)');
     x.fillStyle=rg; x.beginPath(); x.arc(sxp,syp,r,0,7); x.fill();
-    const eq=new THREE.CanvasTexture(c); eq.mapping=THREE.EquirectangularReflectionMapping;
-    const pm=new THREE.PMREMGenerator(renderer); pm.compileEquirectangularShader();
-    scene.environment=pm.fromEquirectangular(eq).texture;
-    eq.dispose(); pm.dispose();
+    const eq=new THREE.CanvasTexture(c);
+    eq.mapping=THREE.EquirectangularReflectionMapping;
+    eq.colorSpace=THREE.SRGBColorSpace;
+    // modern three converts equirect environments internally (no manual PMREM needed)
+    scene.environment=eq;
   }catch(e){ /* reflections are optional */ }
 })();

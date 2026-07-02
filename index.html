@@ -67,12 +67,24 @@
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-  if (typeof THREE === "undefined") {
-    document.getElementById('loadNote').innerHTML =
-      "⚠ three.js を読み込めませんでした。インターネット接続を確認して再読み込みしてください。";
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.webgpu.js",
+    "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.webgpu.js",
+    "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.tsl.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
   }
+}
+</script>
+<script>
+  // surface module-load failures (e.g. offline, CDN unreachable) on the start screen
+  window.addEventListener('error', e=>{
+    if(e.message && /three|import|module/i.test(e.message)){
+      const n=document.getElementById('loadNote');
+      if(n) n.innerHTML="⚠ three.js を読み込めませんでした。インターネット接続を確認して再読み込みしてください。";
+    }
+  }, true);
 </script>
 <script type="module" src="./src/main.js"></script>
 </body>

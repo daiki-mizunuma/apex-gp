@@ -3,6 +3,7 @@
    used both for the live "beat your best" overlay during a race and
    for the post-race cinematic replay in replay.js)
    ===================================================================== */
+import * as THREE from 'three';
 import { buildCar, locate, syncMesh } from './cars.js';
 import { sampleAt } from './recorder.js';
 
@@ -10,15 +11,18 @@ function makeTranslucent(group){
   group.traverse(o=>{
     if(!o.isMesh) return;
     o.castShadow=false; o.receiveShadow=false;
-    const mats=Array.isArray(o.material)?o.material:[o.material];
-    mats.forEach(m=>{ if(!m) return; m.transparent=true; m.opacity=0.30; m.depthWrite=false; });
+    o.renderOrder=5;   // draw after opaque cars so the translucent panels blend correctly
+    // buildCar shares its non-painted materials (tyres, wings, chrome...)
+    // across every car, so clone before making them see-through — otherwise
+    // all six race cars would turn translucent too
+    const clone=m=>{ const c=m.clone(); c.transparent=true; c.opacity=0.30; c.depthWrite=false; return c; };
+    o.material=Array.isArray(o.material)?o.material.map(clone):clone(o.material);
   });
 }
 
 const built=buildCar('#eef3ff', '#7ee0ff');
 makeTranslucent(built.group);
 built.group.visible=false;
-built.group.renderOrder=5;   // draw after opaque cars so the translucent panels blend correctly
 
 /* car-shaped state object — deliberately shaped like the real car objects in
    cars.js so it can reuse locate()/syncMesh() (nearest-track lookup + ground

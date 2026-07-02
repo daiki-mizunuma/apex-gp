@@ -2,6 +2,7 @@
    APEX GP — PHYSICS & AI (player driving model, AI drivers, walls,
    respawn, car-to-car collisions)
    ===================================================================== */
+import * as THREE from 'three';
 import { N, OFFTRACK, WALL_LAT, TOP_SPEED, GRIP, GRIP_GRASS } from './config.js';
 import { SP, FWD, RT, VMAX } from './track.js';
 import { cars, locate } from './cars.js';
