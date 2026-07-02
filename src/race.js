@@ -38,7 +38,7 @@ export function resetRace(){
 
   elc('diffLbl').textContent=getDifficulty().label;
   hideResults();
-  setCamMode(0);
+  setCamMode(1);        // start every race on the mid (near-chase) view
   startCountdown();
 }
 
