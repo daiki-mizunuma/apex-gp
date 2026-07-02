@@ -32,12 +32,19 @@ export function readPad(){
 }
 let padPrev=[];
 export function gamepadActions(actions){
-  if(actions.isIdle()) return;              // ignore until race started (audio needs a click/key)
   const pad=readPad(); if(!pad) return;
   const b=pad.buttons;
   const edge=i=>(b[i]&&b[i].pressed)&&!padPrev[i];
-  if(edge(3)) actions.toggleCam();     // Triangle = camera
-  if(edge(9)) actions.resetRace();     // OPTIONS  = restart
-  if(edge(8)) actions.toggleMute();    // SHARE    = mute
+  const confirm=edge(0)||edge(9);      // Cross/A or OPTIONS/Start = confirm
+  if(actions.isIdle()){
+    if(confirm) actions.startRace();   // let a controller-only player start a race
+  } else if(actions.isFinished()){
+    if(confirm) actions.resetRace();   // race over: confirm = go again
+    if(edge(2)) actions.playReplay();  // Square/X = replay
+  } else {
+    if(edge(3)) actions.toggleCam();     // Triangle = camera
+    if(edge(9)) actions.resetRace();     // OPTIONS  = restart
+    if(edge(8)) actions.toggleMute();    // SHARE    = mute
+  }
   padPrev=b.map(x=>!!x.pressed);
 }

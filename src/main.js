@@ -68,7 +68,21 @@ const actions={
     elc('overlay').style.display='flex';
   },
   onPadConnected(){ try{ showToast('🎮 コントローラー接続', 1500); }catch(_){} },
-  isIdle(){ return race.state==='idle'; }
+  isIdle(){ return race.state==='idle'; },
+  isFinished(){ return race.state==='finished'; },
+  // shared by the title-screen click handler and gamepad Start/Cross so a
+  // controller-only player can actually begin a race (Web Audio unlocks fine
+  // here — the Gamepad API spec ties button-press detection to the same
+  // "user activation" signal a click/keydown gives, so Audio.resume() works)
+  startRace(){
+    Audio.init(); Audio.resume();
+    elc('overlay').style.display='none';
+    resetRace();
+  },
+  playReplay(){
+    const frames=race.bestRecording || loadRecord().ghost;
+    if(frames) beginReplay(frames);
+  }
 };
 initInput(actions);
 
@@ -93,10 +107,7 @@ function endReplay(){
   elc('replayBar').style.display='none';
   elc('results').style.display='flex';
 }
-elc('replayBtn').addEventListener('click', ()=>{
-  const frames=race.bestRecording || loadRecord().ghost;
-  if(frames) beginReplay(frames);
-});
+elc('replayBtn').addEventListener('click', actions.playReplay);
 
 /* ---------------- main loop ---------------- */
 const clock=new THREE.Clock();
@@ -197,11 +208,7 @@ function animate(){
 
 /* ---------------- boot ---------------- */
 elc('audioBtn').addEventListener('click', toggleMute);
-elc('startBtn').addEventListener('click', ()=>{
-  Audio.init(); Audio.resume();
-  elc('overlay').style.display='none';
-  resetRace();
-});
+elc('startBtn').addEventListener('click', actions.startRace);
 elc('againBtn').addEventListener('click', resetRace);
 
 addEventListener('resize', ()=>{
