@@ -1,7 +1,8 @@
 /* =====================================================================
    APEX GP — Config (game-wide constants)
    ===================================================================== */
-export const TOTAL_LAPS = 3;
+import { currentCircuit } from './circuits.js';   // circuits.js imports nothing from here — no cycle
+export const TOTAL_LAPS = currentCircuit().laps || 3;
 export const NUM_CARS   = 6;            // 1 player + 5 AI
 export const ROAD_HALF  = 7.0;          // half road width (m) — ~14 m, Tsukuba-like
 export const KERB_W     = 1.3;

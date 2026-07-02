@@ -11,6 +11,7 @@ import { Audio } from './audio.js';
 import { race } from './race.js';
 import { showToast } from './hud.js';
 import { getDifficulty } from './difficulty.js';
+import { gripFactor } from './weather.js';   // 1.0 dry, <1 in rain
 
 const tmp=new THREE.Vector3();
 
@@ -33,13 +34,14 @@ export function updatePlayer(c, dt){
   // per-side drivable half-width: wider where a zebra run-off strip exists
   const lat=c.lateral||0;
   const onTrack = Math.abs(lat) < (lat>=0 ? DRIVE_R[c.seg] : DRIVE_L[c.seg]);
-  const grip = onTrack? GRIP : GRIP_GRASS;
+  const grip = (onTrack? GRIP : GRIP_GRASS)*gripFactor;
 
-  // longitudinal
+  // longitudinal (wet weather also cuts traction: tract==1 when gripFactor==1)
+  const tract = 0.75+0.25*gripFactor;
   let accel=0;
   if(race.state==='running'){
-    if(throttle>0.02) accel += 14*throttle*(onTrack?1:0.4);
-    if(braking>0.05){ if(c.speed>0.5) accel -= 26*braking; else accel -= 12*braking; } // brake / reverse
+    if(throttle>0.02) accel += 14*tract*throttle*(onTrack?1:0.4);
+    if(braking>0.05){ if(c.speed>0.5) accel -= 26*tract*braking; else accel -= 12*braking; } // brake / reverse
   }
   accel -= 0.02*c.speed;                 // rolling
   accel -= 0.0022*c.speed*Math.abs(c.speed); // air
@@ -57,7 +59,7 @@ export function updatePlayer(c, dt){
   c.steerVal=(c.steerVal||0)+(steer-(c.steerVal||0))*Math.min(1,dt*rate);
   const sgain=2.6-1.1*Math.min(1,sp/TOP_SPEED);
   let desiredYaw = c.steerVal * sgain * speedFactor * dir;
-  const maxYaw = (grip+7) / Math.max(sp,4);   // sharper turn-in than pure grip
+  const maxYaw = (grip+7*gripFactor) / Math.max(sp,4);   // sharper turn-in than pure grip
   const yaw = Math.max(-maxYaw, Math.min(maxYaw, desiredYaw));
   c.heading += yaw*dt;
 
@@ -121,7 +123,8 @@ export function updateAI(c, dt){
   // target speed from upcoming curvature
   let vlimit=TOP_SPEED;
   for(let d=4; d<laAmt+12; d++){ const i=((c.seg+d)%N); if(VMAX[i]<vlimit) vlimit=VMAX[i]; }
-  let targetSpeed=Math.min(TOP_SPEED*c.skill, vlimit*0.94);
+  // VMAX is computed dry in track.js; √gripFactor rescales the cornering limit for rain
+  let targetSpeed=Math.min(TOP_SPEED*c.skill, vlimit*Math.sqrt(gripFactor)*0.94);
 
   // separation: slow if a car just ahead
   for(const o of cars){

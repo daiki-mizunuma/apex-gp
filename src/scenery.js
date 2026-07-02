@@ -1,16 +1,20 @@
 /* =====================================================================
-   APEX GP — Scenery (trees, grandstands, Dunlop bridge, pits, barriers,
-   billboards)  — side-effect module: builds scenery into the scene
+   APEX GP — Scenery (trees, grandstands, pits, barriers, billboards;
+   venue-specific props like the Dunlop arch are gated per circuit)
+   — side-effect module: builds scenery into the scene
    ===================================================================== */
 import * as THREE from 'three';
 import { N, ROAD_HALF, KERB_W, WALL_LAT } from './config.js';
 import { scene } from './scene.js';
 import { cvs } from './textures.js';
-import { SP, FWD, RT, VMAX, trackLen, terrainY, distToTrack, isInsideLoop } from './track.js';
+import { SP, FWD, RT, VMAX, trackLen, terrainY, distToTrack, isInsideLoop, BOUNDS } from './track.js';
+import { currentCircuit } from './circuits.js';
+
+const CIRC=currentCircuit();
 
 /* ---- Scenery: instanced trees + grandstands ---- */
 (function trees(){
-  const count=150;
+  const count=Math.min(400, Math.round(trackLen*0.07));   // ~150 on Tsukuba, scales with lap length
   const trunkG=new THREE.CylinderGeometry(0.5,0.7,4,6);
   const leafG=new THREE.ConeGeometry(3.2,8,8);
   const trunkM=new THREE.MeshStandardMaterial({color:0x6b4a2b,roughness:1});
@@ -18,13 +22,16 @@ import { SP, FWD, RT, VMAX, trackLen, terrainY, distToTrack, isInsideLoop } from
   const trunks=new THREE.InstancedMesh(trunkG,trunkM,count);
   const leaves=new THREE.InstancedMesh(leafG,leafM,count);
   leaves.castShadow=true;
+  const exX=BOUNDS.exX/2+180, exZ=BOUNDS.exZ/2+180;       // scatter box hugs the track bounds
   const m=new THREE.Matrix4(); let n=0, tries=0;
-  while(n<count && tries<6000){
+  while(n<count && tries<count*40){
     tries++;
-    const x=(Math.random()*2-1)*620, z=(Math.random()*2-1)*520;
+    const x=BOUNDS.cx+(Math.random()*2-1)*exX, z=BOUNDS.cz+(Math.random()*2-1)*exZ;
     const d=distToTrack(x,z);
     if(d<WALL_LAT+8 || d>170) continue;
-    if(isInsideLoop(x,z)) continue;    // never place trees in the infield
+    // no infield trees — but the even-odd test misfires on Suzuka's figure-8
+    // (crossing the overpass flips it), so only trust it on simple loops
+    if(CIRC.id==='tsukuba' && isInsideLoop(x,z)) continue;
     const s=0.7+Math.random()*1.1;
     const gy=terrainY(x,z);
     m.makeScale(s,s,s); m.setPosition(x,gy+2*s,z); trunks.setMatrixAt(n,m);
@@ -50,8 +57,9 @@ import { SP, FWD, RT, VMAX, trackLen, terrainY, distToTrack, isInsideLoop } from
   }
 })();
 
-/* ---- Dunlop bridge (classic yellow tyre-shaped arch, à la Le Mans/Fuji) over the Dunlop corner ---- */
-try{(function dunlop(){
+/* ---- Dunlop bridge (classic yellow tyre-shaped arch) over Tsukuba's Dunlop
+   corner — venue-specific, and the arch index is tuned to Tsukuba's lap ---- */
+if(CIRC.id==='tsukuba') try{(function dunlop(){
   const di=Math.round(N*0.585)%N;          // ~58.5% of the lap: ダンロップコーナー section
   const c=SP[di], r=RT[di], f=FWD[di];
   const R=13, rotY=Math.atan2(f.x,f.z);
@@ -81,9 +89,10 @@ try{(function dunlop(){
   banner.position.copy(c); banner.position.y=c.y+R*0.66; banner.rotation.y=rotY; banner.castShadow=true; scene.add(banner);
 })(); }catch(_e){ console.warn('dunlop skipped', _e); }
 
-/* ---- Tsukuba-style surroundings: pit complex, tyre barriers, billboards ---- */
-try{(function tsukubaScenery(){
-  // Mt. Tsukuba is rendered as part of the 360° panorama backdrop (see environment.js)
+/* ---- Circuit surroundings: pit complex, tyre barriers, billboards (all placed
+   relative to the sampled centreline, so they work on any circuit) ---- */
+try{(function surroundings(){
+  // Mountain backdrop is part of the 360° panorama (see environment.js)
   // Pit complex + control tower (infield side of the main straight)
   (function(){
     const mi=Math.round(105/(trackLen/N))%N;   // garage centred ~105 m past the start line, along the home straight
@@ -125,7 +134,9 @@ try{(function tsukubaScenery(){
   })();
   // Billboards along the main straight (spectator side)
   (function(){
-    const txts=['TSUKUBA','JASC','APEX GP','DUNLOP','ENEOS'], bgs=['#11305e','#0a6b3a','#7a1020','#ffd400','#c8410b'];
+    const txts=CIRC.id==='tsukuba' ? ['TSUKUBA','JASC','APEX GP','DUNLOP','ENEOS']
+             : [CIRC.label.split(' ')[0],'APEX GP','ADVAN','DUNLOP','ENEOS'];  // circuit name + generic sponsors
+    const bgs=['#11305e','#0a6b3a','#7a1020','#ffd400','#c8410b'];
     const sp=trackLen/N;
     for(let k=0;k<txts.length;k++){
       const idx=(Math.round((12+k*15)/sp))%N, c=SP[idx], r=RT[idx], f=FWD[idx];

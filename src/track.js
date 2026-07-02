@@ -1,20 +1,20 @@
 /* =====================================================================
-   APEX GP — TRACK (centreline data, terrain helpers, road meshes)
+   APEX GP — TRACK (circuit selection, terrain helpers, road meshes)
    ===================================================================== */
 import * as THREE from 'three';
 import { N, ROAD_HALF, KERB_W, OFFTRACK, WALL_LAT, TOP_SPEED, GRIP } from './config.js';
 import { scene } from './scene.js';
 import { TEX } from './textures.js';
+import { currentCircuit } from './circuits.js';
 
-// Tsukuba Circuit (TC2000) centreline — traced from OpenStreetMap way 110390474
-// (name=コース2000, oneway). Projected to metres (x=east, z=south → north-up minimap),
-// real racing direction, ~2138 m. Index 0 = start/finish on the 449 m home straight
-// (pit side on the driver's side matching the pit complex in scenery.js).
-// Lap order: home straight → 第1コーナー → S字 → 第1ヘアピン → ダンロップ → 80R → 第2ヘアピン → バックストレート → 最終コーナー.
-const TSUKUBA=[[83.2,59.3],[35.1,124.7],[-7.7,182.9],[-16.7,194.7],[-26.7,206],[-35,213.4],[-44.3,219.5],[-54.8,224.8],[-69.4,229.6],[-81.1,232.6],[-95.2,233],[-107.2,232.3],[-120.3,230.5],[-132.9,226.3],[-144,220.9],[-154.1,214.5],[-163.9,206.5],[-169.8,199.6],[-175,191.6],[-179.1,183.5],[-180.9,179.8],[-186.4,157.8],[-188,143.1],[-187.2,132],[-185.2,118.1],[-152.1,-25.8],[-128,-128.1],[-121.1,-159.4],[-116.4,-170.4],[-112.9,-176.2],[-108.6,-180.4],[-103.6,-184.2],[-98.3,-186.5],[-93.4,-188.3],[-88.6,-189],[-82.8,-188.9],[-75.5,-188],[-69.5,-185.5],[-64.4,-181.7],[-58.7,-176.1],[-55.2,-170.2],[-52.7,-163.6],[-51.1,-156.7],[-51.8,-147.2],[-54.7,-138.1],[-92.3,-22.9],[-94.3,-14],[-95.2,-6.6],[-95.7,2],[-90.6,58.3],[-90.4,65.7],[-90.5,71.9],[-91.7,79.8],[-92.9,86.5],[-96.9,96.9],[-114.8,137.5],[-116.8,143.6],[-116.9,149.1],[-116.2,154.1],[-114,159.8],[-111.6,163.7],[-109,166.6],[-105.7,169.8],[-100.6,172.3],[-93.9,173.4],[-86.6,172.8],[-82.5,171.9],[-78.6,170.1],[-74.9,167.4],[-71.3,164.7],[-67.9,159.7],[-65.5,154.8],[-64.4,151.2],[-63.6,147.7],[-45.5,22.2],[-43.3,14.8],[-40.6,9.1],[-37.3,4.1],[-34.5,1],[-31.3,-1.5],[-28,-3.6],[-24.3,-5.2],[-18.4,-7.2],[-15,-7.9],[-11.9,-8.4],[15.8,-9.2],[21.8,-7.8],[26.9,-5.7],[30.6,-3.4],[33.7,-0.7],[38.4,4.2],[42,8.7],[45,12.3],[47.8,14.9],[50.8,16.6],[53.4,17.5],[55.7,17.6],[58.3,17.7],[65.7,16.6],[71.1,13.6],[75.9,9.9],[80.6,5.7],[112.2,-27.4],[120.4,-35.1],[127.6,-42.3],[134.4,-51],[141,-59.8],[153.7,-77.2],[178.8,-112.4],[185.3,-124.5],[188.7,-132.7],[191.6,-140.1],[196.6,-155.4],[201.1,-171.3],[209.3,-202.9],[212.1,-211.3],[215.6,-216.2],[219.4,-220.5],[225.2,-223.9],[230.3,-225.9],[236.8,-225.9],[243.8,-224.4],[247.4,-222.3],[250.6,-219.8],[255.6,-214.7],[257.4,-211.4],[258.5,-208.5],[259.3,-204.4],[259.3,-200.1],[258.2,-192.7],[255.7,-185],[253.2,-179.3],[248.1,-168.3]];
-// Gentle synthetic elevation per point (m) — the real circuit is nearly flat, so keep undulation subtle.
-const TH=TSUKUBA.map((_,i)=>{ const t=i/TSUKUBA.length*Math.PI*2; return 2.0+0.9*Math.sin(t+0.7)+0.5*Math.sin(2*t+2.1); });
-const ctrl=TSUKUBA.map((p,i)=>new THREE.Vector3(p[0],TH[i],p[1]));
+// Centreline control polygon comes from circuits.js; the title-screen picker
+// stores the choice and reloads the page, so reading it once at import is enough.
+const CIRCUIT=currentCircuit();
+const PTS=CIRCUIT.points;
+// Elevation: real per-point data when the circuit ships it (Suzuka's carries the
+// figure-8 overpass); otherwise a gentle synthetic undulation (Tsukuba is nearly flat).
+const TH=CIRCUIT.elev || PTS.map((_,i)=>{ const t=i/PTS.length*Math.PI*2; return 2.0+0.9*Math.sin(t+0.7)+0.5*Math.sin(2*t+2.1); });
+const ctrl=PTS.map((p,i)=>new THREE.Vector3(p[0],TH[i],p[1]));
 const curve=new THREE.CatmullRomCurve3(ctrl, true, 'centripetal', 0.5);
 const rawPts=curve.getSpacedPoints(N);     // N+1 pts (closed)
 
@@ -41,6 +41,13 @@ for(let i=0;i<N;i++){
   let R=area>1e-4 ? (ab*bc*ac)/(4*area) : 9999;
   VMAX.push(Math.min(TOP_SPEED, Math.sqrt(GRIP*Math.min(R,3000))));
 }
+
+// track bounding box — drives grass/terrain plane sizing here and scenery scatter extents
+export const BOUNDS=(()=>{
+  let minX=1e9,maxX=-1e9,minZ=1e9,maxZ=-1e9;
+  for(const p of SP){ if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x; if(p.z<minZ)minZ=p.z; if(p.z>maxZ)maxZ=p.z; }
+  return { minX,maxX,minZ,maxZ, cx:(minX+maxX)/2, cz:(minZ+maxZ)/2, exX:maxX-minX, exZ:maxZ-minZ };
+})();
 
 /* terrain height that hugs the track elevation near the track and flattens to 0 far away */
 export function terrainY(x,z){
@@ -248,19 +255,53 @@ function buildRail(side, y0, y1, mat){
   }
 })();
 
+/* ---- Overpass supports: plain pillars wherever the road bridges well above
+   the local terrain (Suzuka's figure-8 crossover). One instanced box every
+   ~6 samples, skipping spots that would land on the lower road itself. ---- */
+(function pillars(){
+  const spots=[];
+  for(let i=0;i<N;i+=6){
+    const gy=terrainY(SP[i].x,SP[i].z), gap=SP[i].y-gy;
+    // 3.0 m threshold: terrainY sits 0.6 m under the road and dips to the LOWEST
+    // sample within ~32 m, so ordinary undulation reads as a ~2.6 m "gap" where
+    // two track legs of different heights run close (Tsukuba's final corner) —
+    // only a genuine bridge (Suzuka's ~8 m crossover) exceeds 3.0
+    if(gap<=3.0) continue;
+    let onRoad=false;
+    for(let j=0;j<N;j++){                                // every sample: at 8 m spacing a j+=2 stride could miss the underpass
+      if(SP[i].y-SP[j].y<2) continue;                    // only much-lower road segments matter
+      const dx=SP[i].x-SP[j].x, dz=SP[i].z-SP[j].z;
+      if(dx*dx+dz*dz<(ROAD_HALF+1)*(ROAD_HALF+1)){ onRoad=true; break; }
+    }
+    if(onRoad) continue;
+    spots.push([SP[i].x, gy, SP[i].z, gap]);
+  }
+  if(!spots.length) return;
+  const im=new THREE.InstancedMesh(new THREE.BoxGeometry(0.6,1,0.6),
+            new THREE.MeshStandardMaterial({color:0x2a2d33, roughness:0.9}), spots.length);
+  const m=new THREE.Matrix4();
+  spots.forEach(([x,gy,z,gap],k)=>{ m.makeScale(1,gap,1); m.setPosition(x,gy+gap/2,z); im.setMatrixAt(k,m); });
+  im.instanceMatrix.needsUpdate=true; im.castShadow=true; scene.add(im);
+})();
+
 /* ---- Grass: flat far-field plane + elevation-hugging terrain over the track ---- */
-TEX.grass.map.repeat.set(200,200); TEX.grass.normal.repeat.set(200,200);
+const farW=BOUNDS.exX+2600, farH=BOUNDS.exZ+2600;
+TEX.grass.map.repeat.set(Math.round(farW/15),Math.round(farH/15));
+TEX.grass.normal.repeat.set(Math.round(farW/15),Math.round(farH/15));
 const grassMat=new THREE.MeshStandardMaterial({ map:TEX.grass.map, normalMap:TEX.grass.normal,
           roughness:1, metalness:0, normalScale:new THREE.Vector2(0.5,0.5) });
 {
-  const g=new THREE.PlaneGeometry(3000,3000);
-  const ground=new THREE.Mesh(g,grassMat); ground.rotation.x=-Math.PI/2; ground.position.y=-0.5; ground.receiveShadow=true;
+  const g=new THREE.PlaneGeometry(farW,farH);
+  const ground=new THREE.Mesh(g,grassMat); ground.rotation.x=-Math.PI/2;
+  ground.position.set(BOUNDS.cx,-0.5,BOUNDS.cz); ground.receiveShadow=true;
   scene.add(ground);
 }
 { // displaced terrain: rises/falls with the track, settles to 0 at the edges
-  const g=new THREE.PlaneGeometry(1900,1700,260,230);
+  const w=BOUNDS.exX+800, h=BOUNDS.exZ+800;
+  const segX=Math.min(320,Math.round(w/7)), segZ=Math.min(320,Math.round(h/7));  // ~7 m cells, capped
+  const g=new THREE.PlaneGeometry(w,h,segX,segZ);
   g.rotateX(-Math.PI/2);
-  const cx=0, cz=5, pos=g.attributes.position;
+  const cx=BOUNDS.cx, cz=BOUNDS.cz, pos=g.attributes.position;
   for(let i=0;i<pos.count;i++){
     const x=pos.getX(i)+cx, z=pos.getZ(i)+cz;
     pos.setX(i,x); pos.setZ(i,z); pos.setY(i, terrainY(x,z));
