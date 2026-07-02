@@ -1,6 +1,6 @@
 /* =====================================================================
-   APEX GP — HUD (speed/lap/pos, standings, mini-map, toast, countdown,
-   help panel, results screen DOM)
+   APEX GP — HUD (analog tach, lap/pos, standings, mini-map, toast,
+   countdown, help panel, results screen DOM)
    ===================================================================== */
 import { N, TOTAL_LAPS, TOP_SPEED } from './config.js';
 import { SP } from './track.js';
@@ -11,6 +11,66 @@ import { frameTimeAtProgress } from './recorder.js';
 
 export const elc=id=>document.getElementById(id);
 const mapCtx=document.getElementById('map').getContext('2d');
+
+/* ---- analog tachometer ---- */
+const tachCtx=document.getElementById('tach').getContext('2d');
+const TW=200, TH=170, TCX=100, TCY=88, TR=78;
+const IDLE_RPM=4000, REDLINE_RPM=12000, MAX_RPM=13000;
+const tachAng=rpm=>(135+270*rpm/MAX_RPM)*Math.PI/180;   // 0 rpm at lower-left, 270° clockwise sweep
+let dispRpm=IDLE_RPM;                                    // smoothed needle position
+
+// static face (rim, ticks, numerals, red arc) pre-rendered once offscreen
+const tachFace=(()=>{
+  const c=document.createElement('canvas'); c.width=TW; c.height=TH;
+  const x=c.getContext('2d');
+  x.beginPath(); x.arc(TCX,TCY,TR,0,7); x.fillStyle='rgba(8,10,18,.88)'; x.fill();
+  x.lineWidth=2; x.strokeStyle='rgba(255,255,255,.22)'; x.stroke();
+  x.beginPath(); x.arc(TCX,TCY,TR-6,tachAng(REDLINE_RPM),tachAng(MAX_RPM));
+  x.lineWidth=9; x.strokeStyle='rgba(255,45,45,.8)'; x.stroke();
+  for(let r=500;r<MAX_RPM;r+=1000){                      // minor ticks between numerals
+    const a=tachAng(r), ca=Math.cos(a), sa=Math.sin(a);
+    x.beginPath(); x.moveTo(TCX+ca*(TR-3),TCY+sa*(TR-3)); x.lineTo(TCX+ca*(TR-9),TCY+sa*(TR-9));
+    x.lineWidth=1; x.strokeStyle='rgba(255,255,255,.4)'; x.stroke();
+  }
+  x.font='bold 11px Trebuchet MS,Segoe UI,sans-serif'; x.textAlign='center'; x.textBaseline='middle';
+  for(let k=0;k<=13;k++){                                // major ticks + numerals (×1000 rpm)
+    const a=tachAng(k*1000), ca=Math.cos(a), sa=Math.sin(a), red=k>=12;
+    x.beginPath(); x.moveTo(TCX+ca*(TR-3),TCY+sa*(TR-3)); x.lineTo(TCX+ca*(TR-14),TCY+sa*(TR-14));
+    x.lineWidth=2; x.strokeStyle=red?'#ff5252':'rgba(255,255,255,.85)'; x.stroke();
+    x.fillStyle=red?'#ff5252':'#dfe6f5';
+    x.fillText(k, TCX+ca*(TR-25), TCY+sa*(TR-25));
+  }
+  x.font='8px Trebuchet MS,Segoe UI,sans-serif'; x.fillStyle='rgba(255,255,255,.5)';
+  x.fillText('×1000 rpm', TCX, TCY-24);
+  return c;
+})();
+
+function drawTach(){
+  // rev model mirrors audio.js engine(): 7 gear bands, each sweeping
+  // idle (4000 rpm) -> redline (12000 rpm) as speed climbs through the band
+  const p=cars[0], sp=Math.abs(p.speed);
+  const band=TOP_SPEED/7;
+  const gearNum=Math.min(7, Math.floor(sp/band)+1);
+  const local=Math.min(1, Math.max(0,(sp-(gearNum-1)*band)/band));
+  let rpm=IDLE_RPM+local*(REDLINE_RPM-IDLE_RPM);
+  if(sp<1) rpm+=Math.sin(performance.now()*0.005)*80;    // idling isn't perfectly steady
+  dispRpm+=(rpm-dispRpm)*0.35;
+  const ctx=tachCtx;
+  ctx.clearRect(0,0,TW,TH); ctx.drawImage(tachFace,0,0);
+  // needle + hub
+  const a=tachAng(dispRpm), ca=Math.cos(a), sa=Math.sin(a);
+  ctx.beginPath(); ctx.moveTo(TCX-ca*10,TCY-sa*10); ctx.lineTo(TCX+ca*(TR-16),TCY+sa*(TR-16));
+  ctx.lineWidth=3; ctx.lineCap='round'; ctx.strokeStyle='#ff2d2d'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(TCX,TCY,5,0,7); ctx.fillStyle='#1a1e2c'; ctx.fill();
+  ctx.lineWidth=1.5; ctx.strokeStyle='#ff2d2d'; ctx.stroke();
+  // gear + km/h in the open lower sector of the dial
+  const gear=p.speed<0.5 ? (keys['KeyS']||keys['ArrowDown']?'R':'N') : gearNum;
+  ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+  ctx.fillStyle='#ffd23c'; ctx.font='bold 30px Trebuchet MS,Segoe UI,sans-serif';
+  ctx.fillText(gear, TCX, TCY+44);
+  ctx.fillStyle='#fff'; ctx.font='bold 15px Trebuchet MS,Segoe UI,sans-serif';
+  ctx.fillText(Math.round(sp*3.6)+' km/h', TCX, TCY+66);
+}
 
 export function fmtTime(s){
   if(!isFinite(s)||s<=0) return '0:00.00';
@@ -41,10 +101,7 @@ function drawMap(){
 
 export function updateHUD(order, clockT){
   const p=cars[0];
-  elc('kmh').textContent=Math.max(0,Math.round(Math.abs(p.speed)*3.6));
-  const gear = p.speed<0.5 ? (keys['KeyS']||keys['ArrowDown']?'R':'N')
-             : Math.min(6, Math.floor(Math.abs(p.speed)/(TOP_SPEED/6))+1);
-  elc('gear').textContent=gear;
+  drawTach();
   elc('lapNow').textContent=Math.min(TOTAL_LAPS, Math.max(1,p.lap));
   elc('posNow').textContent=p.place;
   elc('curTime').textContent=fmtTime(p.finished?p.lastLap:(p.lap>=1?clockT-p.lapStart:clockT));
