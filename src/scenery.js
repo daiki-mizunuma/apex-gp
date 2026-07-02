@@ -50,8 +50,7 @@ import { SP, FWD, RT, VMAX, trackLen, terrainY, distToTrack } from './track.js';
 
 /* ---- Dunlop bridge (classic yellow tyre-shaped arch, à la Le Mans/Fuji) over the Dunlop corner ---- */
 try{(function dunlop(){
-  let di=0,best=1e18; const tx=-384,tz=-160;
-  for(let i=0;i<N;i++){ const dx=SP[i].x-tx, dz=SP[i].z-tz, d=dx*dx+dz*dz; if(d<best){best=d; di=i;} }
+  const di=Math.round(N*0.585)%N;          // ~58.5% of the lap: ダンロップコーナー section
   const c=SP[di], r=RT[di], f=FWD[di];
   const R=13, rotY=Math.atan2(f.x,f.z);
   const yellow=new THREE.MeshStandardMaterial({color:0xffd400, metalness:0.25, roughness:0.5});
@@ -85,8 +84,7 @@ try{(function tsukubaScenery(){
   // Mt. Tsukuba is rendered as part of the 360° panorama backdrop (see environment.js)
   // Pit complex + control tower (infield side of the main straight)
   (function(){
-    let mi=0,best=1e18; const tx=-25,tz=-112;
-    for(let i=0;i<N;i++){const dx=SP[i].x-tx,dz=SP[i].z-tz,d=dx*dx+dz*dz;if(d<best){best=d;mi=i;}}
+    const mi=Math.round(105/(trackLen/N))%N;   // garage centred ~105 m past the start line, along the home straight
     const c=SP[mi], r=RT[mi], f=FWD[mi], rotY=Math.atan2(f.x,f.z), off=30;
     const base=new THREE.Vector3().copy(c).addScaledVector(r,-off), gy=terrainY(base.x,base.z);
     const wall=new THREE.MeshStandardMaterial({color:0xe2e6ea, roughness:0.7});
