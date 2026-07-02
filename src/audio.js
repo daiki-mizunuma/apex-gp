@@ -214,14 +214,17 @@ export const Audio = (function(){
   let curTrackIdx=0;
   let STEP=60/TRACKS[0].bpm/4;          // 16th-note duration, recomputed on track switch
   let nextTime=0, step=0;
+  const SILENT=TRACKS.length;           // virtual slot after the real tracks = no BGM
 
   function setTrack(idx){
-    curTrackIdx=((idx%TRACKS.length)+TRACKS.length)%TRACKS.length;
+    const n=TRACKS.length+1;            // real tracks + silent slot
+    curTrackIdx=((idx%n)+n)%n;
+    if(curTrackIdx===SILENT) return;    // silent: scheduler idles, nothing to resync
     STEP=60/TRACKS[curTrackIdx].bpm/4;
     if(started){ step=0; nextTime=ctx.currentTime+0.05; }   // resync cleanly at the switch point
   }
-  function nextTrack(){ setTrack(curTrackIdx+1); return TRACKS[curTrackIdx].name; }
-  function getTrackName(){ return TRACKS[curTrackIdx].name; }
+  function nextTrack(){ setTrack(curTrackIdx+1); return getTrackName(); }
+  function getTrackName(){ return curTrackIdx===SILENT ? 'BGM なし' : TRACKS[curTrackIdx].name; }
   function getTrackIndex(){ return curTrackIdx; }
 
   function kick(t){ const o=ctx.createOscillator(),g=ctx.createGain();
@@ -288,6 +291,9 @@ export const Audio = (function(){
   }
   function scheduler(){
     if(!started||!ctx) return;
+    // silent slot: schedule nothing, but keep the resume point pinned just
+    // ahead so switching back to a real track doesn't burst catch-up notes
+    if(curTrackIdx===SILENT){ nextTime=ctx.currentTime+0.05; return; }
     while(nextTime < ctx.currentTime + 0.12){
       scheduleStep(step, nextTime);
       nextTime += STEP; step=(step+1)%64;
