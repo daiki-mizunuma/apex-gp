@@ -3,8 +3,8 @@
    respawn, car-to-car collisions)
    ===================================================================== */
 import * as THREE from 'three';
-import { N, OFFTRACK, WALL_LAT, TOP_SPEED, GRIP, GRIP_GRASS } from './config.js';
-import { SP, FWD, RT, VMAX } from './track.js';
+import { N, WALL_LAT, TOP_SPEED, GRIP, GRIP_GRASS } from './config.js';
+import { SP, FWD, RT, VMAX, DRIVE_L, DRIVE_R } from './track.js';
 import { cars, locate } from './cars.js';
 import { keys, readPad } from './input.js';
 import { Audio } from './audio.js';
@@ -30,7 +30,9 @@ export function updatePlayer(c, dt){
   }
   c.throttle=throttle;
 
-  const onTrack = Math.abs(c.lateral||0) < OFFTRACK;
+  // per-side drivable half-width: wider where a zebra run-off strip exists
+  const lat=c.lateral||0;
+  const onTrack = Math.abs(lat) < (lat>=0 ? DRIVE_R[c.seg] : DRIVE_L[c.seg]);
   const grip = onTrack? GRIP : GRIP_GRASS;
 
   // longitudinal
@@ -138,7 +140,8 @@ export function updateAI(c, dt){
     targetSpeed *= Math.max(d.rubberMin, Math.min(d.rubberMax, 1-gap*0.30));
   }
 
-  const aiOff = Math.abs(c.lateral||0) > OFFTRACK;     // off the asphalt onto grass
+  const lat=c.lateral||0;
+  const aiOff = Math.abs(lat) > (lat>=0 ? DRIVE_R[c.seg] : DRIVE_L[c.seg]);  // off the paved surface onto grass
   if(aiOff) targetSpeed = Math.min(targetSpeed, 16);
   if(race.state!=='running') targetSpeed=0;
   let accel = (targetSpeed>sp+0.5)? 11 : (targetSpeed<sp-0.5? -22 : 0);
@@ -189,7 +192,8 @@ export function respawn(c){
 /* auto-recover cars that are stuck off the asphalt */
 export function checkStuck(c, dt){
   if(race.state==='running' && !c.finished){
-    if(Math.abs(c.lateral||0)>OFFTRACK && Math.abs(c.speed)<4) c.stuckT=(c.stuckT||0)+dt;
+    const lat=c.lateral||0;
+    if(Math.abs(lat)>(lat>=0 ? DRIVE_R[c.seg] : DRIVE_L[c.seg]) && Math.abs(c.speed)<4) c.stuckT=(c.stuckT||0)+dt;
     else c.stuckT=0;
     if(c.stuckT>(c.isPlayer?2.5:4)) respawn(c);
   }

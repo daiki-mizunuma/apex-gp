@@ -2,7 +2,7 @@
    APEX GP — TRACK (centreline data, terrain helpers, road meshes)
    ===================================================================== */
 import * as THREE from 'three';
-import { N, ROAD_HALF, KERB_W, WALL_LAT, TOP_SPEED, GRIP } from './config.js';
+import { N, ROAD_HALF, KERB_W, OFFTRACK, WALL_LAT, TOP_SPEED, GRIP } from './config.js';
 import { scene } from './scene.js';
 import { TEX } from './textures.js';
 
@@ -103,20 +103,80 @@ scene.add( buildRibbon(-ROAD_HALF, ROAD_HALF, 0.05, null, ROAD_HALF*2/8, 8,
              polygonOffset:true, polygonOffsetFactor:-3, polygonOffsetUnits:-3,
              normalScale:new THREE.Vector2(0.5,0.5) })) );
 
-// kerbs (both edges) — shared material with bevel normals
+// kerbs — red/white strips at the corners only (like the real circuit), both sides.
+// corner[i]: local radius under ~135 m (VMAX<52), dilated ±8 samples so the kerb
+// starts before turn-in and runs past the exit.
 const kerbMat=new THREE.MeshStandardMaterial({ map:TEX.kerb.map, normalMap:TEX.kerb.normal,
-             roughness:0.55, metalness:0.0, normalScale:new THREE.Vector2(1,1) });
-const kR=buildRibbon(ROAD_HALF, ROAD_HALF+KERB_W, 0.09, null, 1, 3.0, kerbMat);
-const kL=buildRibbon(-ROAD_HALF-KERB_W, -ROAD_HALF, 0.09, null, 1, 3.0, kerbMat);
-scene.add(kR, kL);
+             roughness:0.55, metalness:0.0, normalScale:new THREE.Vector2(1,1), side:THREE.DoubleSide });
+const corner=new Array(N).fill(false);
+for(let i=0;i<N;i++) if(VMAX[i]<52) for(let d=-8;d<=8;d++) corner[((i+d)%N+N)%N]=true;
 
-// flat red/white "zebra" run-off strips beyond the kerbs at the tighter corners
-(function zebra(){
-  const ZW=4.5, pos=[], uv=[], idx=[];
-  const zt=TEX.kerb.map.clone(); zt.wrapS=zt.wrapT=THREE.RepeatWrapping; zt.repeat.set(1,1); zt.needsUpdate=true;
+// striped run-off: paved zebra on the OUTSIDE of each tight corner (VMAX<38),
+// extended 4 samples into the entry and 16 through the exit (where cars run wide).
+// zebraR/zebraL mark the +RT / -RT sides; DRIVE_R/DRIVE_L are the per-side
+// drivable half-widths (full grip within them) consumed by physics.js.
+// (computed before the kerbs so the kerb mask can be widened to cover them)
+const zebraR=new Array(N).fill(false), zebraL=new Array(N).fill(false);
+export const DRIVE_R=new Array(N).fill(OFFTRACK), DRIVE_L=new Array(N).fill(OFFTRACK);
+{
+  const tight=[]; for(let i=0;i<N;i++) tight.push(VMAX[i]<38);
+  const start=tight.indexOf(false);            // scan origin off any run so no run splits at the wrap
+  if(start>=0){
+    const closeRun=(from,to)=>{                // absolute (unwrapped) indices, from<=to
+      let sum=0;                               // summed turn direction over the run (robust vs noise)
+      for(let k=from;k<=to;k++){ const m=k%N, j=(m+4)%N;
+        sum+=(FWD[j].x-FWD[m].x)*RT[m].x+(FWD[j].z-FWD[m].z)*RT[m].z; }
+      const side = sum>0 ? -1 : 1;             // inside is +1 when turning right → zebra on -1, and vice versa
+      const mask = side>0 ? zebraR : zebraL;
+      for(let k=from-4;k<=to+16;k++) mask[((k%N)+N)%N]=true;
+    };
+    let runFrom=-1;
+    for(let k=start;k<start+N;k++){
+      if(tight[k%N]){ if(runFrom<0) runFrom=k; }
+      else if(runFrom>=0){ closeRun(runFrom,k-1); runFrom=-1; }
+    }
+    if(runFrom>=0) closeRun(runFrom,start+N-1);
+  }
+  for(let i=0;i<N;i++){ if(zebraR[i]) DRIVE_R[i]=ROAD_HALF+4.3; if(zebraL[i]) DRIVE_L[i]=ROAD_HALF+4.3; }
+}
+// a zebra's inner edge must always tuck under a kerb — widen the kerb mask to cover
+// the zebra's entry/exit extensions, which outrun the ±8 corner dilation at fast exits
+for(let i=0;i<N;i++) if(zebraR[i]||zebraL[i]) corner[i]=true;
+(function kerbs(){
+  const pos=[], uv=[], idx=[];
   for(const side of [-1,1]){
     for(let i=0;i<N;i++){
-      if(VMAX[i]>=36) continue;                         // tight corners only
+      if(!corner[i]) continue;
+      const j=(i+1)%N; if(j===0) continue;
+      const ci=SP[i], cj=SP[j], ri=RT[i], rj=RT[j];
+      const a1=ci.clone().addScaledVector(ri, side*ROAD_HALF);
+      const a2=ci.clone().addScaledVector(ri, side*(ROAD_HALF+KERB_W));
+      const b1=cj.clone().addScaledVector(rj, side*ROAD_HALF);
+      const b2=cj.clone().addScaledVector(rj, side*(ROAD_HALF+KERB_W));
+      const base=pos.length/3;
+      pos.push(a1.x,ci.y+0.09,a1.z, a2.x,ci.y+0.09,a2.z, b1.x,cj.y+0.09,b1.z, b2.x,cj.y+0.09,b2.z);
+      const v0=CUM[i]/3.0, v1=CUM[j]/3.0;
+      uv.push(0,v0, 1,v0, 0,v1, 1,v1);
+      // wind so the face normal points up on both sides (the +1 side reverses the
+      // column direction: for side>0, (a2-a1)×(b2-a1) ∝ RT×FWD which points DOWN)
+      if(side>0) idx.push(base,base+3,base+1, base,base+2,base+3);
+      else       idx.push(base,base+1,base+3, base,base+3,base+2);
+    }
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  g.setIndex(idx); g.computeVertexNormals();
+  const m=new THREE.Mesh(g,kerbMat); m.receiveShadow=true; scene.add(m);
+})();
+
+(function zebra(){
+  const ZW=4.3, pos=[], uv=[], idx=[];
+  const zt=TEX.kerb.map.clone(); zt.wrapS=zt.wrapT=THREE.RepeatWrapping; zt.repeat.set(1,1); zt.needsUpdate=true;
+  for(const side of [-1,1]){
+    const mask = side>0 ? zebraR : zebraL;
+    for(let i=0;i<N;i++){
+      if(!mask[i]) continue;
       const j=(i+1)%N; if(j===0) continue;
       const ci=SP[i], cj=SP[j], ri=RT[i], rj=RT[j];
       const a1=ci.clone().addScaledVector(ri, side*ROAD_HALF);
@@ -124,8 +184,8 @@ scene.add(kR, kL);
       const b1=cj.clone().addScaledVector(rj, side*ROAD_HALF);
       const b2=cj.clone().addScaledVector(rj, side*(ROAD_HALF+ZW));
       const base=pos.length/3;
-      // inner edge meets the kerb top (connected to the track), outer edge meets the grass
-      pos.push(a1.x,ci.y+0.05,a1.z, a2.x,ci.y-0.30,a2.z, b1.x,cj.y+0.05,b1.z, b2.x,cj.y-0.30,b2.z);
+      // inner edge tucks under the kerb; nearly flat outward so the strip is drivable
+      pos.push(a1.x,ci.y+0.05,a1.z, a2.x,ci.y-0.10,a2.z, b1.x,cj.y+0.05,b1.z, b2.x,cj.y-0.10,b2.z);
       const v0=CUM[i]/1.4, v1=CUM[j]/1.4;
       uv.push(0,v0, 1,v0, 0,v1, 1,v1);
       idx.push(base,base+1,base+3, base,base+3,base+2);
@@ -140,22 +200,23 @@ scene.add(kR, kL);
 })();
 
 // white guardrails (Armco) running continuously along both sides of the circuit.
-// A constant lateral offset from the centreline self-intersects on the INSIDE
-// of any corner tighter than the offset distance (WALL_LAT=17.3m, but the
-// tightest hairpin here is only ~16m radius) — the rail folds back on itself
-// and appears to detach from the track. Clamp the inside-of-corner offset to
-// a safe fraction of the local radius so it hugs the corner instead of
-// crossing its centre; the outside rail is never affected.
+// A constant lateral offset from the centreline self-intersects on the INSIDE of
+// any corner tighter than the offset distance; WALL_LAT (13.3 m) now sits below
+// the tightest hairpin radius (~16 m) so it can no longer fold back, and the
+// inside-of-corner clamp additionally hugs tight corners. Rails are floored at
+// the zebra edge on either side so an inside-clamped rail can't land on the
+// exit run-off of an adjacent opposite-direction corner (S-curves).
 function railOffset(k, side){
   const j=(k+4)%N, f0=FWD[k], f1=FWD[j], r=RT[k];
   const turn=(f1.x-f0.x)*r.x+(f1.z-f0.z)*r.z;      // >0: track curves toward +r (right)
   const innerSide = turn>0 ? 1 : -1;               // which side (+1/-1) is the inside of this corner
+  let off=WALL_LAT;
   if(side===innerSide && VMAX[k]<TOP_SPEED-0.01){
     const R=(VMAX[k]*VMAX[k])/GRIP;                // local corner radius, back-derived from VMAX
-    const safe=Math.max(ROAD_HALF+KERB_W+2, Math.min(WALL_LAT, R*0.72));
-    return side*safe;
+    off=Math.max(ROAD_HALF+KERB_W+2, Math.min(WALL_LAT, R*0.72));
   }
-  return side*WALL_LAT;
+  if(side>0 ? zebraR[k] : zebraL[k]) off=Math.max(off, ROAD_HALF+5.1);  // clear the drivable zebra (outer edge 11.3)
+  return side*off;
 }
 function buildRail(side, y0, y1, mat){
   const pos=[], uv=[], idx=[];
