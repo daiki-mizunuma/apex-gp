@@ -155,16 +155,18 @@ export function skyTex(){
   }
   const t=new THREE.CanvasTexture(c); t.wrapS=THREE.RepeatWrapping; t.anisotropy=MAXANI; t.colorSpace=THREE.SRGBColorSpace; anisoTextures.push(t); return t;
 }
-export function liveryTex(base, accent){
+export function liveryTex(base, accent, plain){
   const S=512, c=cvs(S,S), x=c.getContext('2d');
   x.fillStyle=base; x.fillRect(0,0,S,S);
   // carbon-fibre weave
   x.globalAlpha=0.07;
   for(let yy=0;yy<S;yy+=6){ x.fillStyle=((yy/6)&1)?'#000':'#fff'; x.fillRect(0,yy,S,3); }
   x.globalAlpha=1;
-  // accent sweep + white stripe
-  x.fillStyle=accent; x.beginPath(); x.moveTo(0,300); x.lineTo(S,180); x.lineTo(S,272); x.lineTo(0,384); x.closePath(); x.fill();
-  x.fillStyle='rgba(255,255,255,.9)'; x.fillRect(0,120,S,16);
+  // accent sweep + white stripe (skipped for plain single-colour liveries)
+  if(!plain){
+    x.fillStyle=accent; x.beginPath(); x.moveTo(0,300); x.lineTo(S,180); x.lineTo(S,272); x.lineTo(0,384); x.closePath(); x.fill();
+    x.fillStyle='rgba(255,255,255,.9)'; x.fillRect(0,120,S,16);
+  }
   // gloss highlight
   const gl=x.createLinearGradient(0,0,0,S); gl.addColorStop(0,'rgba(255,255,255,.20)'); gl.addColorStop(.22,'rgba(255,255,255,0)');
   x.fillStyle=gl; x.fillRect(0,0,S,S);
