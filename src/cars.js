@@ -42,9 +42,9 @@ function makeWheel(r, width){
   hub.rotation.z=Math.PI/2; pivot.add(hub);
   return pivot;
 }
-export function buildCar(base, accent, num){
+export function buildCar(base, accent){
   const car=new THREE.Group();
-  const paint   = new THREE.MeshStandardMaterial({ map:liveryTex(base,accent,num), metalness:0.55, roughness:0.26 });
+  const paint   = new THREE.MeshStandardMaterial({ map:liveryTex(base,accent), metalness:0.55, roughness:0.26 });
   const accentM = new THREE.MeshStandardMaterial({ color:accent, metalness:0.55, roughness:0.3 });
   const add=(geo,mat,x,y,z,cast)=>{ const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); if(cast) m.castShadow=true; car.add(m); return m; };
 
@@ -121,7 +121,7 @@ export const PALETTE=[
 export const cars=[];
 for(let i=0;i<NUM_CARS;i++){
   const p=PALETTE[i];
-  const built=buildCar(p.base, p.acc, i+1);
+  const built=buildCar(p.base, p.acc);
   cars.push({
     id:i, isPlayer:i===0, name:p.name, mesh:built.group, wheels:built.wheels,
     pos:new THREE.Vector3(), heading:0, speed:0,

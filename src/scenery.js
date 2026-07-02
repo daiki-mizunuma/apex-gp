@@ -5,7 +5,7 @@
 import { N, ROAD_HALF, KERB_W, WALL_LAT } from './config.js';
 import { scene } from './scene.js';
 import { cvs } from './textures.js';
-import { SP, FWD, RT, VMAX, trackLen, terrainY, distToTrack } from './track.js';
+import { SP, FWD, RT, VMAX, trackLen, terrainY, distToTrack, isInsideLoop } from './track.js';
 
 /* ---- Scenery: instanced trees + grandstands ---- */
 (function trees(){
@@ -23,6 +23,7 @@ import { SP, FWD, RT, VMAX, trackLen, terrainY, distToTrack } from './track.js';
     const x=(Math.random()*2-1)*620, z=(Math.random()*2-1)*520;
     const d=distToTrack(x,z);
     if(d<WALL_LAT+8 || d>170) continue;
+    if(isInsideLoop(x,z)) continue;    // never place trees in the infield
     const s=0.7+Math.random()*1.1;
     const gy=terrainY(x,z);
     m.makeScale(s,s,s); m.setPosition(x,gy+2*s,z); trunks.setMatrixAt(n,m);

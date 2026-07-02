@@ -15,7 +15,7 @@ function makeTranslucent(group){
   });
 }
 
-const built=buildCar('#eef3ff', '#7ee0ff', 'G');
+const built=buildCar('#eef3ff', '#7ee0ff');
 makeTranslucent(built.group);
 built.group.visible=false;
 built.group.renderOrder=5;   // draw after opaque cars so the translucent panels blend correctly

@@ -17,7 +17,6 @@ export function updatePlayer(c, dt){
   let throttle = (keys['KeyW']||keys['ArrowUp'])?1:0;
   let braking  = (keys['KeyS']||keys['ArrowDown'])?1:0;
   let steer    = ((keys['KeyA']||keys['ArrowLeft'])?1:0) - ((keys['KeyD']||keys['ArrowRight'])?1:0);
-  let hand     = keys['Space']?1:0;
   const pad=readPad();
   if(pad){
     const b=pad.buttons, ax=pad.axes;
@@ -27,7 +26,6 @@ export function updatePlayer(c, dt){
     let sx=ax[0]||0; if(Math.abs(sx)<0.12) sx=0;                 // left-stick deadzone
     const dl=(b[14]&&b[14].pressed)?1:0, dr=(b[15]&&b[15].pressed)?1:0;
     steer=Math.max(-1, Math.min(1, steer + (dl-dr) - sx));       // +left / -right
-    if((b[5]&&b[5].pressed)||(b[1]&&b[1].pressed)) hand=1;       // R1 or ○ = handbrake
   }
   c.throttle=throttle;
 
@@ -56,7 +54,6 @@ export function updatePlayer(c, dt){
   c.steerVal=(c.steerVal||0)+(steer-(c.steerVal||0))*Math.min(1,dt*rate);
   const sgain=2.6-1.1*Math.min(1,sp/TOP_SPEED);
   let desiredYaw = c.steerVal * sgain * speedFactor * dir;
-  if(hand) desiredYaw *= 1.5;            // handbrake = sharper but slidey
   const maxYaw = (grip+7) / Math.max(sp,4);   // sharper turn-in than pure grip
   const yaw = Math.max(-maxYaw, Math.min(maxYaw, desiredYaw));
   c.heading += yaw*dt;
@@ -66,14 +63,13 @@ export function updatePlayer(c, dt){
   let screech=0;
   if(!onTrack && sp>12) screech=Math.max(screech,0.7);
   if(overSpeed) screech=Math.max(screech, 0.6);
-  if(hand && sp>15) screech=Math.max(screech, 0.5);
   if(braking && sp>22) screech=Math.max(screech, 0.4);   // brake squeal
   c.screech=screech;
 
-  // drift detection & scoring: sustained cornering-at-the-limit or handbrake
-  // slides (not plain braking, not off-track) count as a "drift". Points
-  // accrue while sliding and are awarded as one lump sum when the drift ends.
-  const drifting = race.state==='running' && onTrack && sp>18 && (overSpeed || (hand && sp>15));
+  // drift detection & scoring: sustained cornering-at-the-limit (not plain
+  // braking, not off-track) counts as a "drift". Points accrue while sliding
+  // and are awarded as one lump sum when the drift ends.
+  const drifting = race.state==='running' && onTrack && sp>18 && overSpeed;
   if(drifting){
     c.driftT=(c.driftT||0)+dt;
     c.driftScore=(c.driftScore||0) + sp*Math.abs(c.steerVal||0)*dt*2.2;

@@ -143,7 +143,7 @@ export function skyTex(){
   }
   const t=new THREE.CanvasTexture(c); t.wrapS=THREE.RepeatWrapping; t.anisotropy=MAXANI; t.encoding=THREE.sRGBEncoding; return t;
 }
-export function liveryTex(base, accent, num){
+export function liveryTex(base, accent){
   const S=512, c=cvs(S,S), x=c.getContext('2d');
   x.fillStyle=base; x.fillRect(0,0,S,S);
   // carbon-fibre weave
@@ -156,9 +156,6 @@ export function liveryTex(base, accent, num){
   // gloss highlight
   const gl=x.createLinearGradient(0,0,0,S); gl.addColorStop(0,'rgba(255,255,255,.20)'); gl.addColorStop(.22,'rgba(255,255,255,0)');
   x.fillStyle=gl; x.fillRect(0,0,S,S);
-  // number roundel
-  x.fillStyle='#fff'; x.beginPath(); x.arc(S/2,82,54,0,7); x.fill();
-  x.fillStyle='#111'; x.font='bold 78px Arial'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(num,S/2,86);
   return texFrom(c,true);
 }
 

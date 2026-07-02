@@ -61,6 +61,18 @@ export function distToTrack(x,z){
   return Math.sqrt(best);
 }
 
+/* point-in-polygon (ray casting) against the closed track centreline —
+   true for points enclosed by the loop (the infield), false outside it */
+export function isInsideLoop(x,z){
+  let inside=false;
+  for(let i=0,j=N-1;i<N;j=i++){
+    const xi=SP[i].x, zi=SP[i].z, xj=SP[j].x, zj=SP[j].z;
+    const crosses=((zi>z)!==(zj>z)) && (x < (xj-xi)*(z-zi)/(zj-zi)+xi);
+    if(crosses) inside=!inside;
+  }
+  return inside;
+}
+
 /* ---- Road ribbon ---- */
 function buildRibbon(inner, outer, yOff, tex, uRep, alongTile, mat0){
   const pos=[], uv=[], idx=[];
@@ -126,11 +138,28 @@ scene.add(kR, kL);
   scene.add(new THREE.Mesh(g, new THREE.MeshStandardMaterial({map:zt, roughness:0.7, metalness:0.0, side:THREE.DoubleSide})));
 })();
 
-// white guardrails (Armco) running continuously along both sides of the circuit
-function buildRail(lat, y0, y1, mat){
+// white guardrails (Armco) running continuously along both sides of the circuit.
+// A constant lateral offset from the centreline self-intersects on the INSIDE
+// of any corner tighter than the offset distance (WALL_LAT=17.3m, but the
+// tightest hairpin here is only ~16m radius) — the rail folds back on itself
+// and appears to detach from the track. Clamp the inside-of-corner offset to
+// a safe fraction of the local radius so it hugs the corner instead of
+// crossing its centre; the outside rail is never affected.
+function railOffset(k, side){
+  const j=(k+4)%N, f0=FWD[k], f1=FWD[j], r=RT[k];
+  const turn=(f1.x-f0.x)*r.x+(f1.z-f0.z)*r.z;      // >0: track curves toward +r (right)
+  const innerSide = turn>0 ? 1 : -1;               // which side (+1/-1) is the inside of this corner
+  if(side===innerSide && VMAX[k]<TOP_SPEED-0.01){
+    const R=(VMAX[k]*VMAX[k])/GRIP;                // local corner radius, back-derived from VMAX
+    const safe=Math.max(ROAD_HALF+KERB_W+2, Math.min(WALL_LAT, R*0.72));
+    return side*safe;
+  }
+  return side*WALL_LAT;
+}
+function buildRail(side, y0, y1, mat){
   const pos=[], uv=[], idx=[];
   for(let i=0;i<=N;i++){ const k=i%N, c=SP[k], r=RT[k];
-    const p=new THREE.Vector3().copy(c).addScaledVector(r, lat);
+    const p=new THREE.Vector3().copy(c).addScaledVector(r, railOffset(k,side));
     pos.push(p.x,p.y+y0,p.z, p.x,p.y+y1,p.z);
     const v=CUM[k]/3.0; uv.push(v,0, v,1); }
   for(let i=0;i<N;i++){ const a=i*2,b=a+1,c2=a+2,d=a+3; idx.push(a,b,d, a,d,c2); }
@@ -145,13 +174,12 @@ function buildRail(lat, y0, y1, mat){
   const postMat=new THREE.MeshStandardMaterial({ color:0xb9bec5, roughness:0.6, metalness:0.3 });
   const step=3, postG=new THREE.BoxGeometry(0.13,1.3,0.13), cnt=Math.ceil(N/step);
   for(const side of [-1,1]){
-    const lat=side*WALL_LAT;
-    scene.add( buildRail(lat, 0.52, 0.76, railMat) );   // lower beam
-    scene.add( buildRail(lat, 0.92, 1.16, railMat) );   // upper beam
+    scene.add( buildRail(side, 0.52, 0.76, railMat) );   // lower beam
+    scene.add( buildRail(side, 0.92, 1.16, railMat) );   // upper beam
     const im=new THREE.InstancedMesh(postG, postMat, cnt); let n=0;
     for(let i=0;i<N && n<cnt;i+=step){
       const c=SP[i], r=RT[i];
-      const p=new THREE.Vector3().copy(c).addScaledVector(r, lat); p.y=c.y+0.6;
+      const p=new THREE.Vector3().copy(c).addScaledVector(r, railOffset(i,side)); p.y=c.y+0.6;
       const mm=new THREE.Matrix4().setPosition(p); im.setMatrixAt(n++, mm);
     }
     im.count=n; im.instanceMatrix.needsUpdate=true; im.castShadow=true; scene.add(im);

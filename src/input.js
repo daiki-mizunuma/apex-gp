@@ -16,7 +16,8 @@ export function initInput(actions){
     if(e.code==='KeyB') actions.toggleBlur();
     if(e.code==='KeyH') actions.toggleHelp();
     if(e.code==='KeyX') actions.respawnPlayer();
-    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+    if(e.code==='Escape') actions.returnToTitle();
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
   });
   addEventListener('keyup', e=>{ keys[e.code]=false; });
   addEventListener('gamepadconnected', actions.onPadConnected);

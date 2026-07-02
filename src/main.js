@@ -57,6 +57,14 @@ const actions={
   toggleBlur(){ const v=MBLUR.toggle(); showToast(v?'MOTION BLUR: ON':'MOTION BLUR: OFF', 900); },
   respawnPlayer(){ if(race.state==='running' && !cars[0].finished) respawn(cars[0]); },
   nextTrack(){ const name=Audio.nextTrack(); saveTrack(Audio.getTrackIndex()); refreshBgmName(); showToast('🎵 '+name, 1200); },
+  returnToTitle(){
+    if(race.state==='idle') return;
+    if(replayIsPlaying()){ stopReplay(); removeEventListener('keydown', skipReplayOnce); elc('replayBar').style.display='none'; }
+    race.state='idle';
+    placeGrid();
+    elc('results').style.display='none';
+    elc('overlay').style.display='flex';
+  },
   onPadConnected(){ try{ showToast('🎮 コントローラー接続', 1500); }catch(_){} },
   isIdle(){ return race.state==='idle'; }
 };
@@ -145,6 +153,9 @@ function animate(){
   if(replayIsPlaying()){
     updateReplay(dt);
     updateReplayCamera(dt);
+  } else if(race.state==='idle'){
+    hideGhost();
+    idleCamFrame();     // slow orbiting title-screen view
   } else {
     if(race.state==='running') updateGhost(race.clockT-cars[0].lapStart);
     else hideGhost();
