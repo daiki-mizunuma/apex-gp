@@ -1,1 +1,1 @@
-daiki-mizunuma.github.io/apex-gp/
+https://daiki-mizunuma.github.io/apex-gp/
