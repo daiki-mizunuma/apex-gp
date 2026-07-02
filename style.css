@@ -8,29 +8,48 @@ canvas { display:block; }
 .panel { position:absolute; background:rgba(10,12,22,.55); border:1px solid rgba(255,255,255,.15);
          border-radius:10px; padding:8px 12px; backdrop-filter:blur(4px); text-shadow:0 1px 3px #000; }
 
-#lapBox { top:14px; left:14px; font-size:15px; line-height:1.5; }
-#lapBox b { color:#ffd23c; font-size:22px; }
-#posBox { top:14px; left:150px; text-align:center; }
-#posBox .big { font-size:30px; font-weight:bold; color:#ff2d2d; }
-#posBox .small { font-size:12px; opacity:.8; }
+.panel .lbl { font-size:11px; opacity:.7; letter-spacing:1px; }
 
-#timeBox { top:14px; right:14px; text-align:right; font-variant-numeric:tabular-nums; }
-#timeBox .t { font-size:20px; color:#7ee0ff; }
-#timeBox .lbl { font-size:11px; opacity:.7; letter-spacing:1px; }
-#ghostDelta { font-size:16px; font-weight:bold; }
+/* GT-style: position (big) top-left, laps beside it */
+#posBox { top:14px; left:14px; text-align:center; min-width:84px; }
+#posBox .big { font-size:34px; font-weight:bold; color:#ff2d2d; line-height:1.05; }
+#posBox .small { font-size:12px; opacity:.8; margin-left:2px; }
+#lapBox { top:14px; left:110px; text-align:center; font-size:15px; line-height:1.2; }
+#lapBox b { color:#ffd23c; font-size:26px; }
+#lapBox .small { font-size:12px; opacity:.8; margin-left:2px; }
+
+/* best lap + ghost delta chip, top-centre */
+#bestChip { top:56px; left:50%; transform:translateX(-50%); font-size:13px; letter-spacing:1px;
+            white-space:nowrap; font-variant-numeric:tabular-nums; }
+#bestChip #bestTime { color:#ffd23c; font-weight:bold; font-size:18px; margin-left:6px; }
+#ghostDelta { font-size:15px; font-weight:bold; margin-left:8px; }
+
+/* current lap time, bottom-left */
+#lapTimeBox { left:14px; bottom:14px; min-width:150px; font-variant-numeric:tabular-nums; }
+#lapTimeBox .t { font-size:26px; color:#7ee0ff; }
+
+/* sector times (under the top-right map) */
+#sectorBox { top:252px; right:14px; font-size:13px; font-variant-numeric:tabular-nums; padding:6px 10px; }
+#sectorBox .sec-row { display:flex; align-items:baseline; gap:8px; line-height:1.7; padding:0 4px; border-radius:6px; transition:background .5s; }
+#sectorBox .sec-lbl { font-size:10px; letter-spacing:1px; opacity:.65; width:16px; }
+#sectorBox .sec-t { min-width:42px; text-align:right; }
+#sectorBox .sec-d { min-width:42px; text-align:right; font-weight:bold; }
+#sectorBox .sec-fast { color:#4dff88; }
+#sectorBox .sec-slow { color:#ff5252; }
+#sectorBox .sec-row.sec-flash { background:rgba(255,210,60,.28); transition:background .1s; }
 
 .diff-lbl { font-size:10px; font-weight:normal; opacity:.65; letter-spacing:1px; margin-top:2px; }
 
 #speedBox { bottom:14px; left:50%; transform:translateX(-50%); padding:8px; border-radius:22px; }
 
-/* Position list */
-#standings { bottom:18px; left:14px; font-size:13px; line-height:1.55; min-width:150px; }
+/* Position list — GT-style: down the left side under the position box */
+#standings { top:92px; left:14px; font-size:13px; line-height:1.55; min-width:150px; }
 #standings .row { display:flex; justify-content:space-between; gap:10px; }
 #standings .me { color:#ffd23c; font-weight:bold; }
 #standings .hd { opacity:.6; font-size:11px; letter-spacing:1px; border-bottom:1px solid rgba(255,255,255,.2); margin-bottom:3px; padding-bottom:2px; }
 
-/* mini-map */
-#mapWrap { position:absolute; bottom:14px; right:14px; width:150px; height:150px;
+/* mini-map — GT-style: top-right */
+#mapWrap { position:absolute; top:14px; right:14px; width:225px; height:225px;
            background:rgba(10,12,22,.5); border:1px solid rgba(255,255,255,.15); border-radius:10px; }
 #map { width:100%; height:100%; }
 
@@ -54,14 +73,14 @@ canvas { display:block; }
   100% { opacity:0; transform:translateX(-50%) translateY(-56px) scale(1); }
 }
 
-/* replay bar */
-#replayBar { position:fixed; top:58px; left:50%; transform:translateX(-50%); z-index:16; display:none;
+/* replay bar (below the best chip) */
+#replayBar { position:fixed; top:100px; left:50%; transform:translateX(-50%); z-index:16; display:none;
              pointer-events:none; font-size:13px; font-weight:bold; letter-spacing:1px; color:#0a0a12;
              background:linear-gradient(90deg,#7ee0ff,#4aa3ff); border-radius:20px; padding:6px 16px;
              box-shadow:0 4px 16px rgba(0,0,0,.35); }
 
-/* help */
-#help { top:84px; left:14px; font-size:12px; line-height:1.7; opacity:.85; max-width:240px; transition:opacity .4s; }
+/* help — bottom-right (auto-hides shortly after the start) */
+#help { bottom:14px; right:14px; font-size:12px; line-height:1.7; opacity:.85; max-width:240px; transition:opacity .4s; }
 #help kbd { background:#222; border:1px solid #555; border-bottom-width:2px; border-radius:4px; padding:1px 6px; font-family:monospace; }
 
 /* start overlay */
@@ -77,6 +96,10 @@ canvas { display:block; }
 .diff-btn:hover { background:rgba(255,255,255,.14); }
 .diff-btn.active { color:#0a0a12; background:linear-gradient(90deg,#ffd23c,#ff8a00); border-color:transparent; }
 .bgm-picker { display:flex; align-items:center; gap:14px; margin-bottom:26px; pointer-events:auto; }
+#circuitPicker { margin-bottom:14px; }
+#circuitName { font-size:15px; font-weight:bold; letter-spacing:1px; color:#ffd23c; min-width:190px; }
+#wxPicker { margin-bottom:14px; }
+#diffPicker { margin-bottom:16px; }
 .bgm-arrow { cursor:pointer; font-size:14px; color:#cfd6e6; background:rgba(255,255,255,.06);
              border:1px solid rgba(255,255,255,.25); border-radius:50%; width:30px; height:30px; line-height:1; transition:all .15s; }
 .bgm-arrow:hover { background:rgba(255,255,255,.16); }
@@ -109,8 +132,32 @@ canvas { display:block; }
 @media (max-width:600px){
   #overlay h1{font-size:42px;}
   #tach{width:150px;height:127.5px;}
-  #posBox{left:130px;}
-  #mapWrap{width:110px;height:110px;}
+  /* narrow screens: compact top-left stack, audio pill below it, best chip under the map */
+  #posBox{min-width:64px;padding:6px 8px;}
+  #posBox .big{font-size:24px;}
+  #lapBox{left:86px;padding:6px 8px;}
+  #lapBox b{font-size:20px;}
+  #audioBtn{top:76px;left:14px;transform:none;font-size:11px;padding:4px 10px;}
+  #standings{top:118px;}
+  #bestChip{top:188px;right:14px;left:auto;transform:none;font-size:11px;}
+  #bestChip #bestTime{font-size:14px;}
+  #mapWrap{width:165px;height:165px;}
+  #sectorBox{top:236px;}
   .diff-btn{font-size:12px;padding:7px 14px;}
   #results .res-btns{flex-direction:column;gap:10px;}
+}
+/* touch controls active (body class set by src/touch.js): keep the HUD clear of the buttons */
+body.touch-ctl #lapTimeBox{ bottom:130px; }     /* above the steer buttons */
+body.touch-ctl #help{ display:none; }           /* keyboard help is meaningless on touch */
+body.touch-ctl #tcTop{ top:50% !important; }    /* camera/respawn/home: below the map+sectors */
+@media (max-width:600px){
+  body.touch-ctl #speedBox{ bottom:206px; }     /* portrait: tach above the pedal cluster */
+}
+/* landscape phones: short viewport — tach fits beside the pedals at the bottom,
+   the top-right column becomes a row along the top edge next to the lap boxes */
+@media (max-height:500px){
+  body.touch-ctl #speedBox{ bottom:14px; }
+  body.touch-ctl #lapTimeBox{ bottom:105px; }
+  body.touch-ctl #standings{ font-size:10px; line-height:1.3; padding:6px 10px; }
+  body.touch-ctl #tcTop{ top:14px !important; left:200px; right:auto; flex-direction:row; }
 }

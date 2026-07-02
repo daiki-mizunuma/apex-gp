@@ -8,9 +8,29 @@ import { cars, PALETTE } from './cars.js';
 import { keys } from './input.js';
 import { getGhostFrames } from './ghost.js';
 import { frameTimeAtProgress } from './recorder.js';
+// circular with race.js (it imports our DOM helpers) — safe: `race` is only
+// dereferenced inside updateHUD, long after both module bodies have run
+import { race } from './race.js';
 
 export const elc=id=>document.getElementById(id);
-const mapCtx=document.getElementById('map').getContext('2d');
+const mapCanvas=document.getElementById('map');   // 450×450 backing, 225px CSS (drawMap scales from width)
+const mapCtx=mapCanvas.getContext('2d');
+
+/* ---- sector times panel (S1/S2/S3 vs ghost) — DOM built here so index.html stays untouched ---- */
+const SEC_FLASH_S=2.5;
+const secRows=(()=>{
+  const box=document.createElement('div');
+  box.id='sectorBox'; box.className='panel';
+  const rows=[];
+  for(let i=0;i<3;i++){
+    const row=document.createElement('div'); row.className='sec-row';
+    row.innerHTML=`<span class="sec-lbl">S${i+1}</span><span class="sec-t">--.-</span><span class="sec-d"></span>`;
+    box.appendChild(row);
+    rows.push({row, t:row.children[1], d:row.children[2]});
+  }
+  elc('hud').appendChild(box);
+  return rows;
+})();
 
 /* ---- analog tachometer ---- */
 const tachCtx=document.getElementById('tach').getContext('2d');
@@ -77,25 +97,27 @@ export function fmtTime(s){
   const m=Math.floor(s/60), sec=s-m*60;
   return m+':'+sec.toFixed(2).padStart(5,'0');
 }
+export function fmtSec(s){ return (s!=null&&isFinite(s))?s.toFixed(2):'--.-'; }
 
 function drawMap(){
-  const ctx=mapCtx; ctx.clearRect(0,0,300,300);
+  const W=mapCanvas.width, H=mapCanvas.height, k=W/300;  // k scales strokes/dots vs the original 300px design
+  const ctx=mapCtx; ctx.clearRect(0,0,W,H);
   // fit track
   let minx=1e9,maxx=-1e9,minz=1e9,maxz=-1e9;
   for(let i=0;i<N;i+=4){ const p=SP[i]; if(p.x<minx)minx=p.x; if(p.x>maxx)maxx=p.x; if(p.z<minz)minz=p.z; if(p.z>maxz)maxz=p.z; }
-  const pad=20, w=300-pad*2;
+  const pad=20*k, w=W-pad*2;
   const sx=w/(maxx-minx), sz=w/(maxz-minz), s=Math.min(sx,sz);
   const ox=pad+(w-(maxx-minx)*s)/2, oz=pad+(w-(maxz-minz)*s)/2;
   const X=x=>ox+(x-minx)*s, Z=z=>oz+(z-minz)*s;
-  ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=5; ctx.beginPath();
+  ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=5*k; ctx.beginPath();
   for(let i=0;i<=N;i+=4){ const p=SP[i%N]; const px=X(p.x),pz=Z(p.z); i===0?ctx.moveTo(px,pz):ctx.lineTo(px,pz); }
   ctx.closePath(); ctx.stroke();
   // start line dot
-  ctx.fillStyle='#fff'; ctx.fillRect(X(SP[0].x)-3,Z(SP[0].z)-3,6,6);
+  ctx.fillStyle='#fff'; ctx.fillRect(X(SP[0].x)-3*k,Z(SP[0].z)-3*k,6*k,6*k);
   // cars
   for(const c of cars){
     ctx.fillStyle=c.isPlayer?'#ffd23c':PALETTE[c.id].base;
-    ctx.beginPath(); ctx.arc(X(c.pos.x),Z(c.pos.z), c.isPlayer?5:4, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(X(c.pos.x),Z(c.pos.z), (c.isPlayer?5:4)*k, 0, 7); ctx.fill();
   }
 }
 
@@ -116,9 +138,24 @@ export function updateHUD(order, clockT){
       const delta=(clockT-p.lapStart)-ghostT;
       gd.textContent=(delta<=0?'-':'+')+Math.abs(delta).toFixed(2);
       gd.style.color=delta<=0?'#4dff88':'#ff5252';
-      gd.style.display='block';
+      gd.style.display='inline';   // sits inline in the top-centre BEST chip
     } else gd.style.display='none';
   } else gd.style.display='none';
+
+  // sector rows: current-lap times + ghost deltas; a just-finished sector keeps
+  // its value/delta visible via `flash` (also drives the row highlight, clock-based)
+  const sc=race.sectors;
+  for(let i=0;i<3;i++){
+    const e=secRows[i];
+    const age=clockT-sc.flash.t;
+    const fl=sc.flash.idx===i && age>=0 && age<SEC_FLASH_S;
+    const t =sc.times[i]!=null?sc.times[i]:(fl?sc.flash.val:null);
+    const d =sc.times[i]!=null?sc.deltas[i]:(fl?sc.flash.delta:null);
+    e.t.textContent=fmtSec(t);
+    if(d!=null){ e.d.textContent=(d<=0?'-':'+')+Math.abs(d).toFixed(2); e.d.className='sec-d '+(d<=0?'sec-fast':'sec-slow'); }
+    else { e.d.textContent=''; e.d.className='sec-d'; }
+    e.row.classList.toggle('sec-flash', fl);
+  }
 
   let html='';
   order.forEach((c,i)=>{

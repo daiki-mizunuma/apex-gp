@@ -21,12 +21,16 @@ import { initSmoke, spawnSmoke, updateSmoke } from './fx.js';
 import { clampAnisotropy } from './textures.js';
 import { setDifficulty, getDifficulty, diffState } from './difficulty.js';
 import { loadDifficulty, saveDifficulty, loadRecord, loadTrack, saveTrack } from './storage.js';
+import { CIRCUITS, currentCircuit, saveCircuit } from './circuits.js';
+import { updateWeather, sunOffset, currentWeather, saveWeather } from './weather.js';
+import './touch.js';
 
 initSmoke(scene);
 
 /* ---------------- difficulty picker (start overlay) ---------------- */
 setDifficulty(loadDifficulty() || 'NORMAL');
-const diffBtns=[...document.querySelectorAll('.diff-btn')];
+// scope to #diffPicker — the weather buttons reuse .diff-btn for styling only
+const diffBtns=[...document.querySelectorAll('#diffPicker .diff-btn')];
 function refreshDiffButtons(){
   diffBtns.forEach(b=>b.classList.toggle('active', b.dataset.diff===diffState.key));
 }
@@ -48,6 +52,29 @@ function refreshBgmName(){ elc('bgmName').textContent=Audio.getTrackName(); }
 elc('bgmPrev').addEventListener('click', ()=>{ Audio.setTrack(Audio.getTrackIndex()-1); saveTrack(Audio.getTrackIndex()); refreshBgmName(); });
 elc('bgmNext').addEventListener('click', ()=>{ Audio.nextTrack(); saveTrack(Audio.getTrackIndex()); refreshBgmName(); });
 refreshBgmName();
+
+/* ---------------- circuit & weather pickers (start overlay) ----------------
+   Both are applied at module load throughout the codebase, so changing either
+   simply persists the choice and reloads the page. */
+{
+  const cur=currentCircuit();
+  elc('circuitName').textContent=cur.label;
+  const shift=d=>{
+    const i=CIRCUITS.findIndex(c=>c.id===cur.id);
+    saveCircuit(CIRCUITS[((i+d)%CIRCUITS.length+CIRCUITS.length)%CIRCUITS.length].id);
+    location.reload();
+  };
+  elc('circuitPrev').addEventListener('click', ()=>shift(-1));
+  elc('circuitNext').addEventListener('click', ()=>shift(1));
+
+  const wx=currentWeather();
+  document.querySelectorAll('.wx-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.wx===wx.id);
+    b.addEventListener('click', ()=>{
+      if(b.dataset.wx!==wx.id){ saveWeather(b.dataset.wx); location.reload(); }
+    });
+  });
+}
 
 /* ---------------- input wiring ---------------- */
 function toggleMute(){
@@ -182,8 +209,11 @@ function animate(){
     updateCamera(dt);
   }
 
-  // sun follows player for crisp shadows
-  sun.position.set(cars[0].pos.x+220, 380, cars[0].pos.z+160);
+  // rain streaks follow the camera — after the camera update so the box doesn't lag a frame
+  updateWeather(dt);
+
+  // sun follows player for crisp shadows (offset per weather — low sun at sunset)
+  sun.position.set(cars[0].pos.x+sunOffset.x, sunOffset.y, cars[0].pos.z+sunOffset.z);
   sun.target.position.copy(cars[0].pos);
 
   updateHUD(order, race.clockT);
@@ -218,6 +248,7 @@ addEventListener('resize', ()=>{
 });
 
 elc('lapTot').textContent=TOTAL_LAPS;
+elc('ctrlLaps').textContent=TOTAL_LAPS;   // title-screen blurb (laps are per-circuit)
 elc('posTot').textContent=NUM_CARS;
 elc('diffLbl').textContent=getDifficulty().label;
 placeGrid();

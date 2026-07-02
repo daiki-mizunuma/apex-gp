@@ -10,14 +10,13 @@
 <div id="game"></div>
 
 <div id="hud">
-  <div id="lapBox" class="panel">LAP <b><span id="lapNow">1</span></b>/<span id="lapTot">3</span><div id="diffLbl" class="diff-lbl">NORMAL</div></div>
-  <div id="posBox" class="panel"><div class="big"><span id="posNow">6</span></div><div class="small">/ <span id="posTot">6</span></div></div>
-  <div id="timeBox" class="panel">
-    <div class="lbl">LAP TIME</div><div class="t" id="curTime">0:00.00</div>
-    <div class="lbl" style="margin-top:4px">BEST</div><div class="t" id="bestTime" style="color:#ffd23c">--:--.--</div>
-    <div class="lbl" style="margin-top:4px">GHOST</div><div class="t" id="ghostDelta" style="display:none">+0.00</div>
-  </div>
-  <div id="mapWrap"><canvas id="map" width="300" height="300"></canvas></div>
+  <!-- GT-style layout: position+laps top-left, standings down the left side,
+       BEST chip top-centre, map top-right with sectors beneath, lap time bottom-left -->
+  <div id="posBox" class="panel"><div class="lbl">POSITION</div><span class="big" id="posNow">6</span><span class="small">/ <span id="posTot">6</span></span></div>
+  <div id="lapBox" class="panel"><div class="lbl">LAPS</div><b><span id="lapNow">1</span></b><span class="small">/ <span id="lapTot">3</span></span><div id="diffLbl" class="diff-lbl">NORMAL</div></div>
+  <div id="bestChip" class="panel">BEST <span id="bestTime">--:--.--</span><span id="ghostDelta" style="display:none">+0.00</span></div>
+  <div id="lapTimeBox" class="panel"><div class="lbl">LAP TIME</div><div class="t" id="curTime">0:00.00</div></div>
+  <div id="mapWrap"><canvas id="map" width="450" height="450"></canvas></div>
   <div id="standings" class="panel"><div class="hd">ORDER</div><div id="standRows"></div></div>
   <div id="speedBox" class="panel"><canvas id="tach" width="200" height="170"></canvas></div>
   <div id="help" class="panel">
@@ -39,6 +38,16 @@
 <div id="overlay">
   <h1>APEX&nbsp;GP</h1>
   <div class="sub">3D F1 RACER</div>
+  <div id="circuitPicker" class="bgm-picker">
+    <button id="circuitPrev" class="bgm-arrow" aria-label="前のコース">◀</button>
+    <span id="circuitName">TSUKUBA TC2000</span>
+    <button id="circuitNext" class="bgm-arrow" aria-label="次のコース">▶</button>
+  </div>
+  <div id="wxPicker" class="diff-picker">
+    <button class="diff-btn wx-btn" data-wx="sunny">☀️ 晴天</button>
+    <button class="diff-btn wx-btn" data-wx="rain">🌧️ 雨</button>
+    <button class="diff-btn wx-btn" data-wx="sunset">🌆 夕暮れ</button>
+  </div>
   <div id="diffPicker" class="diff-picker">
     <button class="diff-btn" data-diff="EASY">EASY</button>
     <button class="diff-btn" data-diff="NORMAL">NORMAL</button>
@@ -52,7 +61,7 @@
   <button id="startBtn">▶ レース スタート</button>
   <div class="ctrls">
     <kbd>W A S D</kbd> または <kbd>方向キー</kbd> で運転 ・ <kbd>C</kbd> 視点切替 ・ <kbd>Esc</kbd> タイトルへ戻る<br>
-    最後尾スタート → AIを抜いて 3周勝負！
+    最後尾スタート → AIを抜いて <span id="ctrlLaps">3</span>周勝負！
   </div>
   <div id="loadNote"></div>
 </div>
