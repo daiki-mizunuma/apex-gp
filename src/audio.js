@@ -5,7 +5,7 @@ import { TOP_SPEED } from './config.js';
 
 export const Audio = (function(){
   let ctx=null, master=null, musicGain=null, sfxGain=null;
-  let engOsc1=null, engOsc2=null, engGain=null, engFilter=null, sub=null, subGain=null, engHi=null, engHiGain=null, lastGear=1;
+  let engOsc1=null, engOsc2=null, engGain=null, engFilter=null, sub=null, subGain=null, engHi=null, engHiGain=null, engHiBP=null, lastGear=1;
   let noiseBuf=null, screechSrc=null, screechGain=null, screechFilter=null;
   let leadDelayIn=null;
   let started=false, muted=false;
@@ -26,18 +26,21 @@ export const Audio = (function(){
     sfxGain=ctx.createGain(); sfxGain.gain.value=0.9; sfxGain.connect(master);
     noiseBuf=makeNoise();
 
-    // engine
+    // engine — V12, 4-stroke: 6 firings per crank revolution, so the
+    // fundamental "buzz" = (RPM/60)*6. See engine() for the RPM model.
     engFilter=ctx.createBiquadFilter(); engFilter.type='lowpass'; engFilter.frequency.value=900; engFilter.connect(sfxGain);
     engGain=ctx.createGain(); engGain.gain.value=0.0; engGain.connect(engFilter);
-    engOsc1=ctx.createOscillator(); engOsc1.type='sawtooth'; engOsc1.frequency.value=70;
-    engOsc2=ctx.createOscillator(); engOsc2.type='square'; engOsc2.frequency.value=71.5;
+    engOsc1=ctx.createOscillator(); engOsc1.type='sawtooth'; engOsc1.frequency.value=400;      // fundamental (firing frequency)
+    engOsc2=ctx.createOscillator(); engOsc2.type='square'; engOsc2.frequency.value=800;        // 2nd harmonic -> buzzy edge
     engOsc1.connect(engGain); engOsc2.connect(engGain);
     subGain=ctx.createGain(); subGain.gain.value=0.0; subGain.connect(sfxGain);
-    sub=ctx.createOscillator(); sub.type='sine'; sub.frequency.value=45; sub.connect(subGain);
-    // high-rev "scream" harmonic (F1 character) — bypasses the lowpass via its own band-pass
-    const engHiBP=ctx.createBiquadFilter(); engHiBP.type='bandpass'; engHiBP.frequency.value=3200; engHiBP.Q.value=0.8; engHiBP.connect(sfxGain);
+    sub=ctx.createOscillator(); sub.type='sine'; sub.frequency.value=67; sub.connect(subGain);  // crank rotation -> mechanical rumble
+    // high-rev "scream" harmonic (F1 V12 character) — bypasses the lowpass via
+    // its own band-pass, which tracks the harmonic's frequency so it stays
+    // audible (rather than filtered out) as revs climb toward redline
+    engHiBP=ctx.createBiquadFilter(); engHiBP.type='bandpass'; engHiBP.frequency.value=1200; engHiBP.Q.value=1.0; engHiBP.connect(sfxGain);
     engHiGain=ctx.createGain(); engHiGain.gain.value=0.0; engHiGain.connect(engHiBP);
-    engHi=ctx.createOscillator(); engHi.type='sawtooth'; engHi.frequency.value=600; engHi.connect(engHiGain);
+    engHi=ctx.createOscillator(); engHi.type='sawtooth'; engHi.frequency.value=1200; engHi.connect(engHiGain);
     engOsc1.start(); engOsc2.start(); sub.start(); engHi.start();
 
     // tyre screech (looping filtered noise, gated)
@@ -76,7 +79,12 @@ export const Audio = (function(){
     o.connect(g); g.connect(sfxGain); o.start(t); o.stop(t+0.22);
   }
 
-  // ---- engine update each frame ----
+  // ---- engine update each frame: V12 firing-order model ----
+  // A 4-stroke V12 fires once per cylinder every 2 crank revolutions, i.e.
+  // 12/2 = 6 power strokes per revolution, so the fundamental exhaust "buzz"
+  // frequency is (RPM/60)*6. Each of the 7 gear bands sweeps roughly idle
+  // (4000 RPM) up to redline (12000 RPM) as revs climb through the gear.
+  const IDLE_RPM=4000, REDLINE_RPM=12000, FIRINGS_PER_REV=6;
   function engine(speed, throttle, on){
     if(!started||!ctx) return;
     const gear=Math.min(7, Math.floor(speed/(TOP_SPEED/7))+1);
@@ -84,16 +92,21 @@ export const Audio = (function(){
     const local=Math.min(1,(speed-(gear-1)*band)/band);      // 0..1 within gear (revs)
     const revAbs=speed/TOP_SPEED;
     const now=ctx.currentTime;
-    let f=95 + local*230 + gear*10 + (speed<1? Math.sin(now*5)*3:0);   // higher, F1-ish
-    engOsc1.frequency.setTargetAtTime(f, now, 0.04);
-    engOsc2.frequency.setTargetAtTime(f*1.5+1, now, 0.04);             // fifth -> raspier
-    sub.frequency.setTargetAtTime(f*0.5, now, 0.06);
-    engHi.frequency.setTargetAtTime(f*6 + 300, now, 0.035);            // the scream
-    engHiGain.gain.setTargetAtTime(on ? (0.012 + 0.06*local*revAbs + 0.03*revAbs) : 0, now, 0.05);
+    let rpm = IDLE_RPM + local*(REDLINE_RPM-IDLE_RPM);
+    if(speed<1) rpm += Math.sin(now*5)*80;                    // idling isn't perfectly steady
+    const revNorm = Math.min(1, (rpm-IDLE_RPM)/(REDLINE_RPM-IDLE_RPM));  // 0 at gear-start, 1 at redline
+    const fund = (rpm/60)*FIRINGS_PER_REV;                    // firing frequency (fundamental)
+    engOsc1.frequency.setTargetAtTime(fund, now, 0.04);       // fundamental
+    engOsc2.frequency.setTargetAtTime(fund*2, now, 0.04);     // 2nd harmonic -> buzzy edge
+    sub.frequency.setTargetAtTime(rpm/60, now, 0.06);         // crank rotation -> mechanical rumble
+    const screamFreq = fund*3;                                // 3rd harmonic -> the high-rev scream
+    engHi.frequency.setTargetAtTime(screamFreq, now, 0.035);
+    engHiBP.frequency.setTargetAtTime(screamFreq, now, 0.035);  // keep the band-pass centred on it
+    engHiGain.gain.setTargetAtTime(on ? (0.006 + 0.18*revNorm*revNorm*revAbs) : 0, now, 0.05);  // opens up sharply near redline
     const vol = on ? (0.05 + 0.10*revAbs + 0.06*throttle) : 0.0;
     engGain.gain.setTargetAtTime(vol, now, 0.07);
-    subGain.gain.setTargetAtTime(on?0.045+0.045*revAbs:0, now, 0.1);
-    engFilter.frequency.setTargetAtTime(700 + local*3200 + gear*160, now, 0.05);
+    subGain.gain.setTargetAtTime(on?0.05+0.05*revAbs:0, now, 0.1);
+    engFilter.frequency.setTargetAtTime(900 + revNorm*4200 + gear*160, now, 0.05);
     if(on && gear>lastGear) backfire();                       // upshift "blat"
     lastGear = gear;
     if(on && throttle<0.05 && speed>28 && Math.random()<0.12) pop();   // overrun crackle
