@@ -2,7 +2,7 @@
    APEX GP — CIRCUIT DATA (centrelines traced from OpenStreetMap raceway
    ways, projected to metres: x=east, z=south, real racing direction,
    index 0 = start/finish on the main straight)
-   - tsukuba: way 110390474 (コース2000), ~2.1 km
+   - tsukuba: way 110390474 (Course 2000), ~2.1 km
    - suzuka:  stitched GP-course fragments incl. 130R/spoon/hairpin, ~5.8 km;
               elev[] carries the crossover: the west-straight->130R section
               rises ~7.5 m to bridge over the Degner->hairpin section

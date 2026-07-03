@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -20,17 +20,17 @@
   <div id="standings" class="panel"><div class="hd">ORDER</div><div id="standRows"></div></div>
   <div id="speedBox" class="panel"><canvas id="tach" width="200" height="170"></canvas></div>
   <div id="help" class="panel">
-    <kbd>W</kbd>/<kbd>↑</kbd> アクセル　<kbd>S</kbd>/<kbd>↓</kbd> ブレーキ<br>
-    <kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> ステア<br>
-    <kbd>C</kbd> カメラ切替　<kbd>X</kbd> コース復帰<br>
-    <kbd>M</kbd> ミュート　<kbd>N</kbd> 曲を切替<br>
-    <kbd>R</kbd> リスタート　<kbd>H</kbd> ヘルプ表示<br>
-    <kbd>Esc</kbd> タイトルへ戻る
+    <kbd>W</kbd>/<kbd>↑</kbd> Throttle　<kbd>S</kbd>/<kbd>↓</kbd> Brake<br>
+    <kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> Steer<br>
+    <kbd>C</kbd> Camera　<kbd>X</kbd> Back on track<br>
+    <kbd>M</kbd> Mute　<kbd>N</kbd> Next song<br>
+    <kbd>R</kbd> Restart　<kbd>H</kbd> Toggle help<br>
+    <kbd>Esc</kbd> Back to title
   </div>
 </div>
 
 <div id="audioBtn">🔊 SOUND ON</div>
-<div id="replayBar">▶ REPLAY — 何かキーを押すとスキップ</div>
+<div id="replayBar">▶ REPLAY — press any key to skip</div>
 <div id="count"></div>
 <div id="toast"></div>
 <div id="driftPop"></div>
@@ -39,14 +39,14 @@
   <h1>APEX&nbsp;GP</h1>
   <div class="sub">3D F1 RACER</div>
   <div id="circuitPicker" class="bgm-picker">
-    <button id="circuitPrev" class="bgm-arrow" aria-label="前のコース">◀</button>
+    <button id="circuitPrev" class="bgm-arrow" aria-label="Previous circuit">◀</button>
     <span id="circuitName">TSUKUBA TC2000</span>
-    <button id="circuitNext" class="bgm-arrow" aria-label="次のコース">▶</button>
+    <button id="circuitNext" class="bgm-arrow" aria-label="Next circuit">▶</button>
   </div>
   <div id="wxPicker" class="diff-picker">
-    <button class="diff-btn wx-btn" data-wx="sunny">☀️ 晴天</button>
-    <button class="diff-btn wx-btn" data-wx="rain">🌧️ 雨</button>
-    <button class="diff-btn wx-btn" data-wx="sunset">🌆 夕暮れ</button>
+    <button class="diff-btn wx-btn" data-wx="sunny">☀️ SUNNY</button>
+    <button class="diff-btn wx-btn" data-wx="rain">🌧️ RAIN</button>
+    <button class="diff-btn wx-btn" data-wx="sunset">🌆 SUNSET</button>
   </div>
   <div id="diffPicker" class="diff-picker">
     <button class="diff-btn" data-diff="EASY">EASY</button>
@@ -54,14 +54,14 @@
     <button class="diff-btn" data-diff="HARD">HARD</button>
   </div>
   <div id="bgmPicker" class="bgm-picker">
-    <button id="bgmPrev" class="bgm-arrow" aria-label="前の曲">◀</button>
+    <button id="bgmPrev" class="bgm-arrow" aria-label="Previous track">◀</button>
     <span id="bgmName">MIDNIGHT VECTOR</span>
-    <button id="bgmNext" class="bgm-arrow" aria-label="次の曲">▶</button>
+    <button id="bgmNext" class="bgm-arrow" aria-label="Next track">▶</button>
   </div>
-  <button id="startBtn">▶ レース スタート</button>
+  <button id="startBtn">▶ START RACE</button>
   <div class="ctrls">
-    <kbd>W A S D</kbd> または <kbd>方向キー</kbd> で運転 ・ <kbd>C</kbd> 視点切替 ・ <kbd>Esc</kbd> タイトルへ戻る<br>
-    最後尾スタート → AIを抜いて <span id="ctrlLaps">3</span>周勝負！
+    Drive with <kbd>W A S D</kbd> or <kbd>Arrow Keys</kbd> ・ <kbd>C</kbd> camera ・ <kbd>Esc</kbd> back to title<br>
+    Start from the back — pass every AI car in a <span id="ctrlLaps">3</span>-lap race!
   </div>
   <div id="loadNote"></div>
 </div>
@@ -71,8 +71,8 @@
   <div class="fin" id="resFin"></div>
   <table id="resTable"></table>
   <div class="res-btns">
-    <button id="againBtn">もう一度 (R)</button>
-    <button id="replayBtn">🎬 リプレイ</button>
+    <button id="againBtn">Race again (R)</button>
+    <button id="replayBtn">🎬 Replay</button>
   </div>
 </div>
 
@@ -91,7 +91,7 @@
   window.addEventListener('error', e=>{
     if(e.message && /three|import|module/i.test(e.message)){
       const n=document.getElementById('loadNote');
-      if(n) n.innerHTML="⚠ three.js を読み込めませんでした。インターネット接続を確認して再読み込みしてください。";
+      if(n) n.innerHTML="⚠ Failed to load three.js. Check your internet connection and reload the page.";
     }
   }, true);
 </script>

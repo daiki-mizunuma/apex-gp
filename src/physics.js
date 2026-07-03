@@ -189,7 +189,7 @@ export function respawn(c){
   c.heading=Math.atan2(FWD[i].x,FWD[i].z);
   c.speed=0; c.lane=0; c.steerVal=0; c.stuckT=0;
   c.frac=i/N; c.prevFrac=c.frac; c.lateral=0;
-  if(c.isPlayer) showToast('コース復帰', 1000);
+  if(c.isPlayer) showToast('Back on track', 1000);
 }
 
 /* auto-recover cars that are stuck off the asphalt */

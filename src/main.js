@@ -94,7 +94,7 @@ const actions={
     elc('results').style.display='none';
     elc('overlay').style.display='flex';
   },
-  onPadConnected(){ try{ showToast('🎮 コントローラー接続', 1500); }catch(_){} },
+  onPadConnected(){ try{ showToast('🎮 Controller connected', 1500); }catch(_){} },
   isIdle(){ return race.state==='idle'; },
   isFinished(){ return race.state==='finished'; },
   // shared by the title-screen click handler and gamepad Start/Cross so a

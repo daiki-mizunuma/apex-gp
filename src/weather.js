@@ -6,9 +6,9 @@
    textures.js imports it, so it must never import textures.js back.
    ===================================================================== */
 export const WEATHERS=[
-  {id:'sunny',label:'☀️ 晴天'},
-  {id:'rain',label:'🌧️ 雨'},
-  {id:'sunset',label:'🌆 夕暮れ'},
+  {id:'sunny',label:'☀️ SUNNY'},
+  {id:'rain',label:'🌧️ RAIN'},
+  {id:'sunset',label:'🌆 SUNSET'},
 ];
 
 const KEY='apexgp_weather';

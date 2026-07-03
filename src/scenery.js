@@ -60,7 +60,7 @@ const CIRC=currentCircuit();
 /* ---- Dunlop bridge (classic yellow tyre-shaped arch) over Tsukuba's Dunlop
    corner — venue-specific, and the arch index is tuned to Tsukuba's lap ---- */
 if(CIRC.id==='tsukuba') try{(function dunlop(){
-  const di=Math.round(N*0.585)%N;          // ~58.5% of the lap: ダンロップコーナー section
+  const di=Math.round(N*0.585)%N;          // ~58.5% of the lap: Dunlop corner section
   const c=SP[di], r=RT[di], f=FWD[di];
   const R=13, rotY=Math.atan2(f.x,f.z);
   const yellow=new THREE.MeshStandardMaterial({color:0xffd400, metalness:0.25, roughness:0.5});

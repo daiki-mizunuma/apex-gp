@@ -224,7 +224,7 @@ export const Audio = (function(){
     if(started){ step=0; nextTime=ctx.currentTime+0.05; }   // resync cleanly at the switch point
   }
   function nextTrack(){ setTrack(curTrackIdx+1); return getTrackName(); }
-  function getTrackName(){ return curTrackIdx===SILENT ? 'BGM なし' : TRACKS[curTrackIdx].name; }
+  function getTrackName(){ return curTrackIdx===SILENT ? 'BGM OFF' : TRACKS[curTrackIdx].name; }
   function getTrackIndex(){ return curTrackIdx; }
 
   function kick(t){ const o=ctx.createOscillator(),g=ctx.createGain();

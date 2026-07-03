@@ -198,7 +198,7 @@ export function renderResults(final, hasReplay){
   const me=cars[0];
   const pl=final.indexOf(me)+1;
   elc('resTitle').textContent = pl===1?'🏆 WINNER!':'FINISH — P'+pl;
-  elc('resFin').textContent = 'ベストラップ '+(isFinite(me.bestLap)?fmtTime(me.bestLap):'--');
+  elc('resFin').textContent = 'BEST LAP '+(isFinite(me.bestLap)?fmtTime(me.bestLap):'--');
   let t='<tr><th>POS</th><th>DRIVER</th><th>BEST LAP</th></tr>';
   final.forEach((c,i)=>{ t+=`<tr class="${c.isPlayer?'me':''}"><td>${i+1}</td><td>${c.name}</td><td>${isFinite(c.bestLap)?fmtTime(c.bestLap):'--'}</td></tr>`; });
   elc('resTable').innerHTML=t;
