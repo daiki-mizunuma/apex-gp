@@ -40,7 +40,8 @@ canvas { display:block; }
 
 .diff-lbl { font-size:10px; font-weight:normal; opacity:.65; letter-spacing:1px; margin-top:2px; }
 
-#speedBox { bottom:14px; left:50%; transform:translateX(-50%); padding:8px; border-radius:22px; }
+#speedBox { bottom:14px; left:50%; transform:translateX(-50%); padding:8px; border-radius:22px;
+            display:flex; gap:4px; }   /* speedo (left) + tach (right), GT-style twin dials */
 
 /* Position list — GT-style: down the left side under the position box */
 #standings { top:92px; left:14px; font-size:13px; line-height:1.55; min-width:150px; }
@@ -131,7 +132,8 @@ canvas { display:block; }
             color:#fff; border-radius:20px; padding:5px 14px; }
 @media (max-width:600px){
   #overlay h1{font-size:42px;}
-  #tach{width:150px;height:127.5px;}
+  #tach,#speedo{width:150px;height:127.5px;}
+  #lapTimeBox{bottom:170px;}   /* clear the twin dials, which span most of a narrow screen */
   /* narrow screens: compact top-left stack, audio pill below it, best chip under the map */
   #posBox{min-width:64px;padding:6px 8px;}
   #posBox .big{font-size:24px;}

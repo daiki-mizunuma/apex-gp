@@ -32,64 +32,80 @@ const secRows=(()=>{
   return rows;
 })();
 
-/* ---- analog tachometer ---- */
-const tachCtx=document.getElementById('tach').getContext('2d');
-const TW=200, TH=170, TCX=100, TCY=88, TR=78;
-const IDLE_RPM=4000, REDLINE_RPM=12000, MAX_RPM=13000;
-const tachAng=rpm=>(135+270*rpm/MAX_RPM)*Math.PI/180;   // 0 rpm at lower-left, 270° clockwise sweep
-let dispRpm=IDLE_RPM;                                    // smoothed needle position
+/* ---- analog dials: speedometer (left) + tachometer (right), GT-style ---- */
+const DW=200, DH=170, DCX=100, DCY=88, DR=78;
+const IDLE_RPM=4000, REDLINE_RPM=12000, MAX_RPM=13000, MAX_KMH=300;
 
-// static face (rim, ticks, numerals, red arc) pre-rendered once offscreen
-const tachFace=(()=>{
-  const c=document.createElement('canvas'); c.width=TW; c.height=TH;
+// pre-render a static dial face (rim, ticks, numerals, optional red arc);
+// returns it with its value->angle map (270° clockwise sweep from lower-left)
+function makeDial({max, redFrom, minor, major, label, caption}){
+  const ang=v=>(135+270*v/max)*Math.PI/180;
+  const c=document.createElement('canvas'); c.width=DW; c.height=DH;
   const x=c.getContext('2d');
-  x.beginPath(); x.arc(TCX,TCY,TR,0,7); x.fillStyle='rgba(8,10,18,.88)'; x.fill();
+  x.beginPath(); x.arc(DCX,DCY,DR,0,7); x.fillStyle='rgba(8,10,18,.88)'; x.fill();
   x.lineWidth=2; x.strokeStyle='rgba(255,255,255,.22)'; x.stroke();
-  x.beginPath(); x.arc(TCX,TCY,TR-6,tachAng(REDLINE_RPM),tachAng(MAX_RPM));
-  x.lineWidth=9; x.strokeStyle='rgba(255,45,45,.8)'; x.stroke();
-  for(let r=500;r<MAX_RPM;r+=1000){                      // minor ticks between numerals
-    const a=tachAng(r), ca=Math.cos(a), sa=Math.sin(a);
-    x.beginPath(); x.moveTo(TCX+ca*(TR-3),TCY+sa*(TR-3)); x.lineTo(TCX+ca*(TR-9),TCY+sa*(TR-9));
+  if(redFrom!=null){
+    x.beginPath(); x.arc(DCX,DCY,DR-6,ang(redFrom),ang(max));
+    x.lineWidth=9; x.strokeStyle='rgba(255,45,45,.8)'; x.stroke();
+  }
+  for(let v=minor;v<max;v+=minor){                       // minor ticks between numerals
+    if(v%major===0) continue;
+    const a=ang(v), ca=Math.cos(a), sa=Math.sin(a);
+    x.beginPath(); x.moveTo(DCX+ca*(DR-3),DCY+sa*(DR-3)); x.lineTo(DCX+ca*(DR-9),DCY+sa*(DR-9));
     x.lineWidth=1; x.strokeStyle='rgba(255,255,255,.4)'; x.stroke();
   }
   x.font='bold 11px Trebuchet MS,Segoe UI,sans-serif'; x.textAlign='center'; x.textBaseline='middle';
-  for(let k=0;k<=13;k++){                                // major ticks + numerals (×1000 rpm)
-    const a=tachAng(k*1000), ca=Math.cos(a), sa=Math.sin(a), red=k>=12;
-    x.beginPath(); x.moveTo(TCX+ca*(TR-3),TCY+sa*(TR-3)); x.lineTo(TCX+ca*(TR-14),TCY+sa*(TR-14));
+  for(let v=0;v<=max;v+=major){                          // major ticks + numerals
+    const a=ang(v), ca=Math.cos(a), sa=Math.sin(a), red=redFrom!=null&&v>=redFrom;
+    x.beginPath(); x.moveTo(DCX+ca*(DR-3),DCY+sa*(DR-3)); x.lineTo(DCX+ca*(DR-14),DCY+sa*(DR-14));
     x.lineWidth=2; x.strokeStyle=red?'#ff5252':'rgba(255,255,255,.85)'; x.stroke();
     x.fillStyle=red?'#ff5252':'#dfe6f5';
-    x.fillText(k, TCX+ca*(TR-25), TCY+sa*(TR-25));
+    x.fillText(label(v), DCX+ca*(DR-25), DCY+sa*(DR-25));
   }
   x.font='8px Trebuchet MS,Segoe UI,sans-serif'; x.fillStyle='rgba(255,255,255,.5)';
-  x.fillText('×1000 rpm', TCX, TCY-24);
-  return c;
-})();
+  x.fillText(caption, DCX, DCY-24);
+  return {face:c, ang};
+}
+function drawNeedle(ctx, ang, v){
+  const a=ang(v), ca=Math.cos(a), sa=Math.sin(a);
+  ctx.beginPath(); ctx.moveTo(DCX-ca*10,DCY-sa*10); ctx.lineTo(DCX+ca*(DR-16),DCY+sa*(DR-16));
+  ctx.lineWidth=3; ctx.lineCap='round'; ctx.strokeStyle='#ff2d2d'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(DCX,DCY,5,0,7); ctx.fillStyle='#1a1e2c'; ctx.fill();
+  ctx.lineWidth=1.5; ctx.strokeStyle='#ff2d2d'; ctx.stroke();
+}
 
-function drawTach(){
-  // rev model mirrors audio.js engine(): 7 gear bands, each sweeping
-  // idle (4000 rpm) -> redline (12000 rpm) as speed climbs through the band
+const speedoCtx=document.getElementById('speedo').getContext('2d');
+const tachCtx=document.getElementById('tach').getContext('2d');
+const speedo=makeDial({max:MAX_KMH, redFrom:null, minor:10, major:50, label:v=>v, caption:'km/h'});
+const tach  =makeDial({max:MAX_RPM, redFrom:REDLINE_RPM, minor:500, major:1000, label:v=>v/1000, caption:'×1000 rpm'});
+let dispKmh=0, dispRpm=IDLE_RPM;                         // smoothed needle positions
+
+function drawDials(){
   const p=cars[0], sp=Math.abs(p.speed);
+  // speedometer: digital km/h under the hub
+  const kmh=sp*3.6;
+  dispKmh+=(kmh-dispKmh)*0.35;
+  speedoCtx.clearRect(0,0,DW,DH); speedoCtx.drawImage(speedo.face,0,0);
+  drawNeedle(speedoCtx, speedo.ang, Math.min(MAX_KMH,dispKmh));
+  speedoCtx.textAlign='center'; speedoCtx.textBaseline='alphabetic';
+  speedoCtx.fillStyle='#fff'; speedoCtx.font='bold 24px Trebuchet MS,Segoe UI,sans-serif';
+  speedoCtx.fillText(Math.round(kmh), DCX, DCY+48);
+  speedoCtx.fillStyle='rgba(255,255,255,.6)'; speedoCtx.font='10px Trebuchet MS,Segoe UI,sans-serif';
+  speedoCtx.fillText('km/h', DCX, DCY+62);
+  // tachometer: rev model mirrors audio.js engine() — 7 gear bands, each
+  // sweeping idle (4000 rpm) -> redline (12000 rpm) as speed climbs through
   const band=TOP_SPEED/7;
   const gearNum=Math.min(7, Math.floor(sp/band)+1);
   const local=Math.min(1, Math.max(0,(sp-(gearNum-1)*band)/band));
   let rpm=IDLE_RPM+local*(REDLINE_RPM-IDLE_RPM);
   if(sp<1) rpm+=Math.sin(performance.now()*0.005)*80;    // idling isn't perfectly steady
   dispRpm+=(rpm-dispRpm)*0.35;
-  const ctx=tachCtx;
-  ctx.clearRect(0,0,TW,TH); ctx.drawImage(tachFace,0,0);
-  // needle + hub
-  const a=tachAng(dispRpm), ca=Math.cos(a), sa=Math.sin(a);
-  ctx.beginPath(); ctx.moveTo(TCX-ca*10,TCY-sa*10); ctx.lineTo(TCX+ca*(TR-16),TCY+sa*(TR-16));
-  ctx.lineWidth=3; ctx.lineCap='round'; ctx.strokeStyle='#ff2d2d'; ctx.stroke();
-  ctx.beginPath(); ctx.arc(TCX,TCY,5,0,7); ctx.fillStyle='#1a1e2c'; ctx.fill();
-  ctx.lineWidth=1.5; ctx.strokeStyle='#ff2d2d'; ctx.stroke();
-  // gear + km/h in the open lower sector of the dial
+  tachCtx.clearRect(0,0,DW,DH); tachCtx.drawImage(tach.face,0,0);
+  drawNeedle(tachCtx, tach.ang, dispRpm);
   const gear=p.speed<0.5 ? (keys['KeyS']||keys['ArrowDown']?'R':'N') : gearNum;
-  ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-  ctx.fillStyle='#ffd23c'; ctx.font='bold 30px Trebuchet MS,Segoe UI,sans-serif';
-  ctx.fillText(gear, TCX, TCY+44);
-  ctx.fillStyle='#fff'; ctx.font='bold 15px Trebuchet MS,Segoe UI,sans-serif';
-  ctx.fillText(Math.round(sp*3.6)+' km/h', TCX, TCY+66);
+  tachCtx.textAlign='center'; tachCtx.textBaseline='alphabetic';
+  tachCtx.fillStyle='#ffd23c'; tachCtx.font='bold 30px Trebuchet MS,Segoe UI,sans-serif';
+  tachCtx.fillText(gear, DCX, DCY+50);
 }
 
 export function fmtTime(s){
@@ -123,7 +139,7 @@ function drawMap(){
 
 export function updateHUD(order, clockT){
   const p=cars[0];
-  drawTach();
+  drawDials();
   elc('lapNow').textContent=Math.min(TOTAL_LAPS, Math.max(1,p.lap));
   elc('posNow').textContent=p.place;
   elc('curTime').textContent=fmtTime(p.finished?p.lastLap:(p.lap>=1?clockT-p.lapStart:clockT));
